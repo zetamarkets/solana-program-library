@@ -290,6 +290,14 @@ impl Reserve {
             }
         }
 
+        /*
+        psuedo code for liquidation protocol fee
+        let mut protocol_fee_amount = withdraw_amount.checked_div(liquidation_pct)?.checked_mul(protocol_fee)?;
+        if protocol_fee_amount == 0 {
+            protocol_fee_amount = 1;
+        }
+        let withdraw_fee = withdraw_amount.checked_sub(protocol_fee_amount)?;*/
+
         Ok(CalculateLiquidationResult {
             settle_amount,
             repay_amount,
@@ -363,6 +371,8 @@ pub struct ReserveLiquidity {
     pub available_amount: u64,
     /// Reserve liquidity borrowed
     pub borrowed_amount_wads: Decimal,
+    /// Reserve accumulated protocol fees to claim
+    pub accumulated_protocol_fees: Decimal,
     /// Reserve liquidity cumulative borrow rate
     pub cumulative_borrow_rate_wads: Decimal,
     /// Reserve liquidity market price in quote currency
@@ -380,6 +390,7 @@ impl ReserveLiquidity {
             switchboard_oracle_pubkey: params.switchboard_oracle_pubkey,
             available_amount: 0,
             borrowed_amount_wads: Decimal::zero(),
+            accumulated_protocol_fees: Decimal::zero(),
             cumulative_borrow_rate_wads: Decimal::one(),
             market_price: params.market_price,
         }
@@ -599,6 +610,8 @@ pub struct ReserveConfig {
     pub loan_to_value_ratio: u8,
     /// Bonus a liquidator gets when repaying part of an unhealthy obligation, as a percentage
     pub liquidation_bonus: u8,
+    // Cut of the liquidation bonus that the protocol receives
+    pub protocol_liquidation_fee: u8,
     /// Loan to value ratio at which an obligation can be liquidated, as a percentage
     pub liquidation_threshold: u8,
     /// Min borrow APY
@@ -763,7 +776,9 @@ impl Pack for Reserve {
             config_deposit_limit,
             config_borrow_limit,
             config_fee_receiver,
+            config_protocol_liquidation_fee,
             _padding,
+            liquidity_accumulated_protocol_fees,
         ) = mut_array_refs![
             output,
             1,
@@ -795,7 +810,9 @@ impl Pack for Reserve {
             8,
             8,
             PUBKEY_BYTES,
-            248
+            1,
+            231,
+            16
         ];
 
         // reserve
@@ -817,6 +834,10 @@ impl Pack for Reserve {
             liquidity_borrowed_amount_wads,
         );
         pack_decimal(
+            self.liquidity.accumulated_protocol_fees,
+            liquidity_accumulated_protocol_fees,
+        );
+        pack_decimal(
             self.liquidity.cumulative_borrow_rate_wads,
             liquidity_cumulative_borrow_rate_wads,
         );
@@ -831,6 +852,7 @@ impl Pack for Reserve {
         *config_optimal_utilization_rate = self.config.optimal_utilization_rate.to_le_bytes();
         *config_loan_to_value_ratio = self.config.loan_to_value_ratio.to_le_bytes();
         *config_liquidation_bonus = self.config.liquidation_bonus.to_le_bytes();
+        *config_protocol_liquidation_fee = self.config.protocol_liquidation_fee.to_le_bytes();
         *config_liquidation_threshold = self.config.liquidation_threshold.to_le_bytes();
         *config_min_borrow_rate = self.config.min_borrow_rate.to_le_bytes();
         *config_optimal_borrow_rate = self.config.optimal_borrow_rate.to_le_bytes();
@@ -877,7 +899,9 @@ impl Pack for Reserve {
             config_deposit_limit,
             config_borrow_limit,
             config_fee_receiver,
+            config_protocol_liquidation_fee,
             _padding,
+            liquidity_accumulated_protocol_fees,
         ) = array_refs![
             input,
             1,
@@ -909,7 +933,9 @@ impl Pack for Reserve {
             8,
             8,
             PUBKEY_BYTES,
-            248
+            1,
+            231,
+            16
         ];
 
         let version = u8::from_le_bytes(*version);
@@ -935,6 +961,7 @@ impl Pack for Reserve {
                 ),
                 available_amount: u64::from_le_bytes(*liquidity_available_amount),
                 borrowed_amount_wads: unpack_decimal(liquidity_borrowed_amount_wads),
+                accumulated_protocol_fees: unpack_decimal(liquidity_accumulated_protocol_fees),
                 cumulative_borrow_rate_wads: unpack_decimal(liquidity_cumulative_borrow_rate_wads),
                 market_price: unpack_decimal(liquidity_market_price),
             },
@@ -947,6 +974,7 @@ impl Pack for Reserve {
                 optimal_utilization_rate: u8::from_le_bytes(*config_optimal_utilization_rate),
                 loan_to_value_ratio: u8::from_le_bytes(*config_loan_to_value_ratio),
                 liquidation_bonus: u8::from_le_bytes(*config_liquidation_bonus),
+                protocol_liquidation_fee: u8::from_le_bytes(*config_protocol_liquidation_fee),
                 liquidation_threshold: u8::from_le_bytes(*config_liquidation_threshold),
                 min_borrow_rate: u8::from_le_bytes(*config_min_borrow_rate),
                 optimal_borrow_rate: u8::from_le_bytes(*config_optimal_borrow_rate),
