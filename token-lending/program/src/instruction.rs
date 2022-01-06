@@ -405,6 +405,7 @@ impl LendingInstruction {
                 let (optimal_utilization_rate, rest) = Self::unpack_u8(rest)?;
                 let (loan_to_value_ratio, rest) = Self::unpack_u8(rest)?;
                 let (liquidation_bonus, rest) = Self::unpack_u8(rest)?;
+                let (protocol_liquidation_fee, rest) = Self::unpack_u8(rest)?;
                 let (liquidation_threshold, rest) = Self::unpack_u8(rest)?;
                 let (min_borrow_rate, rest) = Self::unpack_u8(rest)?;
                 let (optimal_borrow_rate, rest) = Self::unpack_u8(rest)?;
@@ -421,6 +422,7 @@ impl LendingInstruction {
                         optimal_utilization_rate,
                         loan_to_value_ratio,
                         liquidation_bonus,
+                        protocol_liquidation_fee,
                         liquidation_threshold,
                         min_borrow_rate,
                         optimal_borrow_rate,
@@ -480,25 +482,28 @@ impl LendingInstruction {
                 Self::WithdrawObligationCollateralAndRedeemReserveCollateral { collateral_amount }
             }
             16 => {
-                let (optimal_utilization_rate, _rest) = Self::unpack_u8(rest)?;
-                let (loan_to_value_ratio, _rest) = Self::unpack_u8(_rest)?;
-                let (liquidation_bonus, _rest) = Self::unpack_u8(_rest)?;
-                let (liquidation_threshold, _rest) = Self::unpack_u8(_rest)?;
-                let (min_borrow_rate, _rest) = Self::unpack_u8(_rest)?;
-                let (optimal_borrow_rate, _rest) = Self::unpack_u8(_rest)?;
-                let (max_borrow_rate, _rest) = Self::unpack_u8(_rest)?;
-                let (borrow_fee_wad, _rest) = Self::unpack_u64(_rest)?;
-                let (flash_loan_fee_wad, _rest) = Self::unpack_u64(_rest)?;
-                let (host_fee_percentage, _rest) = Self::unpack_u8(_rest)?;
-                let (deposit_limit, _rest) = Self::unpack_u64(_rest)?;
-                let (borrow_limit, _rest) = Self::unpack_u64(_rest)?;
-                let (fee_receiver, _) = Self::unpack_pubkey(_rest)?;
-
-                Self::UpdateReserveConfig {
+                let (liquidity_amount, rest) = Self::unpack_u64(rest)?;
+                let (optimal_utilization_rate, rest) = Self::unpack_u8(rest)?;
+                let (loan_to_value_ratio, rest) = Self::unpack_u8(rest)?;
+                let (liquidation_bonus, rest) = Self::unpack_u8(rest)?;
+                let (protocol_liquidation_fee, rest) = Self::unpack_u8(rest)?;
+                let (liquidation_threshold, rest) = Self::unpack_u8(rest)?;
+                let (min_borrow_rate, rest) = Self::unpack_u8(rest)?;
+                let (optimal_borrow_rate, rest) = Self::unpack_u8(rest)?;
+                let (max_borrow_rate, rest) = Self::unpack_u8(rest)?;
+                let (borrow_fee_wad, rest) = Self::unpack_u64(rest)?;
+                let (flash_loan_fee_wad, rest) = Self::unpack_u64(rest)?;
+                let (host_fee_percentage, rest) = Self::unpack_u8(rest)?;
+                let (deposit_limit, rest) = Self::unpack_u64(rest)?;
+                let (borrow_limit, rest) = Self::unpack_u64(rest)?;
+                let (fee_receiver, _) = Self::unpack_pubkey(rest)?;
+                Self::InitReserve {
+                    liquidity_amount,
                     config: ReserveConfig {
                         optimal_utilization_rate,
                         loan_to_value_ratio,
                         liquidation_bonus,
+                        protocol_liquidation_fee,
                         liquidation_threshold,
                         min_borrow_rate,
                         optimal_borrow_rate,
@@ -596,6 +601,7 @@ impl LendingInstruction {
                         optimal_utilization_rate,
                         loan_to_value_ratio,
                         liquidation_bonus,
+                        protocol_liquidation_fee,
                         liquidation_threshold,
                         min_borrow_rate,
                         optimal_borrow_rate,
@@ -616,6 +622,7 @@ impl LendingInstruction {
                 buf.extend_from_slice(&optimal_utilization_rate.to_le_bytes());
                 buf.extend_from_slice(&loan_to_value_ratio.to_le_bytes());
                 buf.extend_from_slice(&liquidation_bonus.to_le_bytes());
+                buf.extend_from_slice(&protocol_liquidation_fee.to_le_bytes());
                 buf.extend_from_slice(&liquidation_threshold.to_le_bytes());
                 buf.extend_from_slice(&min_borrow_rate.to_le_bytes());
                 buf.extend_from_slice(&optimal_borrow_rate.to_le_bytes());
