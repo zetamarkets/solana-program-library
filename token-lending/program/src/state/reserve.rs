@@ -610,7 +610,7 @@ pub struct ReserveConfig {
     pub loan_to_value_ratio: u8,
     /// Bonus a liquidator gets when repaying part of an unhealthy obligation, as a percentage
     pub liquidation_bonus: u8,
-    // Cut of the liquidation bonus that the protocol receives
+    /// Cut of the liquidation bonus that the protocol receives, as a percentage
     pub protocol_liquidation_fee: u8,
     /// Loan to value ratio at which an obligation can be liquidated, as a percentage
     pub liquidation_threshold: u8,
