@@ -1602,7 +1602,7 @@ fn process_liquidate_obligation(
         return Err(LendingError::ReserveStale.into());
     }
 
-    let withdraw_reserve = Reserve::unpack(&withdraw_reserve_info.data.borrow())?;
+    let mut withdraw_reserve = Reserve::unpack(&withdraw_reserve_info.data.borrow())?;
     if withdraw_reserve_info.owner != program_id {
         msg!("Withdraw reserve provided is not owned by the lending program");
         return Err(LendingError::InvalidAccountOwner.into());
@@ -1685,6 +1685,7 @@ fn process_liquidate_obligation(
         settle_amount,
         repay_amount,
         withdraw_amount,
+        protocol_fee_amount,
     } = withdraw_reserve.calculate_liquidation(
         liquidity_amount,
         &obligation,
@@ -1706,9 +1707,12 @@ fn process_liquidate_obligation(
     Reserve::pack(repay_reserve, &mut repay_reserve_info.data.borrow_mut())?;
 
     obligation.repay(settle_amount, liquidity_index)?;
-    obligation.withdraw(withdraw_amount, collateral_index)?;
+    obligation.withdraw(withdraw_amount.checked_add(protocol_fee_amount).unwrap(), collateral_index)?;
     obligation.last_update.mark_stale();
     Obligation::pack(obligation, &mut obligation_info.data.borrow_mut())?;
+
+    // protocol fees
+    withdraw_reserve.liquidity.accumulated_protocol_fees = withdraw_reserve.liquidity.accumulated_protocol_fees.try_add(Decimal::from(protocol_fee_amount))?;
 
     spl_token_transfer(TokenTransferParams {
         source: source_liquidity_info.clone(),

@@ -221,6 +221,7 @@ impl Reserve {
         collateral: &ObligationCollateral,
     ) -> Result<CalculateLiquidationResult, ProgramError> {
         let bonus_rate = Rate::from_percent(self.config.liquidation_bonus).try_add(Rate::one())?;
+        let protocol_fee_rate = Rate::from_percent(self.config.protocol_liquidation_fee);
 
         let max_amount = if amount_to_liquidate == u64::MAX {
             liquidity.borrowed_amount_wads
@@ -290,18 +291,22 @@ impl Reserve {
             }
         }
 
-        /*
-        psuedo code for liquidation protocol fee
-        let mut protocol_fee_amount = withdraw_amount.checked_div(liquidation_pct)?.checked_mul(protocol_fee)?;
+        // the bonus amount
+        let bonus_amount = Decimal::from(withdraw_amount).try_sub(Decimal::from(withdraw_amount).try_div(bonus_rate)?)?;
+
+        let mut protocol_fee_amount = bonus_amount.try_mul(protocol_fee_rate)?.try_floor_u64()?;
+        // minimum protocol fee
         if protocol_fee_amount == 0 {
             protocol_fee_amount = 1;
         }
-        let withdraw_fee = withdraw_amount.checked_sub(protocol_fee_amount)?;*/
+
+        let withdraw_amount = withdraw_amount.checked_sub(protocol_fee_amount).unwrap_or(0);
 
         Ok(CalculateLiquidationResult {
             settle_amount,
             repay_amount,
             withdraw_amount,
+            protocol_fee_amount,
         })
     }
 }
@@ -352,6 +357,8 @@ pub struct CalculateLiquidationResult {
     pub repay_amount: u64,
     /// Amount of collateral to withdraw in exchange for repay amount
     pub withdraw_amount: u64,
+    /// Amount of collateral transferred to the protocol as fees
+    pub protocol_fee_amount: u64,
 }
 
 /// Reserve liquidity
