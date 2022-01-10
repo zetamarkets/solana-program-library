@@ -1707,12 +1707,18 @@ fn process_liquidate_obligation(
     Reserve::pack(repay_reserve, &mut repay_reserve_info.data.borrow_mut())?;
 
     obligation.repay(settle_amount, liquidity_index)?;
-    obligation.withdraw(withdraw_amount.checked_add(protocol_fee_amount).unwrap(), collateral_index)?;
+    obligation.withdraw(
+        withdraw_amount.checked_add(protocol_fee_amount).unwrap(),
+        collateral_index,
+    )?;
     obligation.last_update.mark_stale();
     Obligation::pack(obligation, &mut obligation_info.data.borrow_mut())?;
 
     // protocol fees
-    withdraw_reserve.liquidity.accumulated_protocol_fees = withdraw_reserve.liquidity.accumulated_protocol_fees.try_add(Decimal::from(protocol_fee_amount))?;
+    withdraw_reserve.liquidity.accumulated_protocol_fees = withdraw_reserve
+        .liquidity
+        .accumulated_protocol_fees
+        .try_add(Decimal::from(protocol_fee_amount))?;
 
     spl_token_transfer(TokenTransferParams {
         source: source_liquidity_info.clone(),

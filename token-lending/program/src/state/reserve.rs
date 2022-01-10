@@ -292,7 +292,8 @@ impl Reserve {
         }
 
         // the bonus amount
-        let bonus_amount = Decimal::from(withdraw_amount).try_sub(Decimal::from(withdraw_amount).try_div(bonus_rate)?)?;
+        let bonus_amount = Decimal::from(withdraw_amount)
+            .try_sub(Decimal::from(withdraw_amount).try_div(bonus_rate)?)?;
 
         let mut protocol_fee_amount = bonus_amount.try_mul(protocol_fee_rate)?.try_floor_u64()?;
         // minimum protocol fee
@@ -300,7 +301,9 @@ impl Reserve {
             protocol_fee_amount = 1;
         }
 
-        let withdraw_amount = withdraw_amount.checked_sub(protocol_fee_amount).unwrap_or(0);
+        let withdraw_amount = withdraw_amount
+            .checked_sub(protocol_fee_amount)
+            .unwrap_or(0);
 
         Ok(CalculateLiquidationResult {
             settle_amount,

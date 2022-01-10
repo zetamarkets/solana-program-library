@@ -634,7 +634,8 @@ fn main() {
                 value_of(arg_matches, "optimal_utilization_rate").unwrap();
             let loan_to_value_ratio = value_of(arg_matches, "loan_to_value_ratio").unwrap();
             let liquidation_bonus = value_of(arg_matches, "liquidation_bonus").unwrap();
-            let protocol_liquidation_fee = value_of(arg_matches, "protocol_liquidation_fee").unwrap();
+            let protocol_liquidation_fee =
+                value_of(arg_matches, "protocol_liquidation_fee").unwrap();
             let liquidation_threshold = value_of(arg_matches, "liquidation_threshold").unwrap();
             let min_borrow_rate = value_of(arg_matches, "min_borrow_rate").unwrap();
             let optimal_borrow_rate = value_of(arg_matches, "optimal_borrow_rate").unwrap();
