@@ -51,7 +51,7 @@ struct PartialReserveConfig {
     /// Bonus a liquidator gets when repaying part of an unhealthy obligation, as a percentage
     pub liquidation_bonus: Option<u8>,
     /// Cut of the liquidation bonus that the protocol receives, as a percentage
-    pub protocol_liquidation_fee: u8,
+    pub protocol_liquidation_fee: Option<u8>,
     /// Loan to value ratio at which an obligation can be liquidated, as a percentage
     pub liquidation_threshold: Option<u8>,
     /// Min borrow APY
@@ -708,6 +708,7 @@ fn main() {
             let optimal_utilization_rate = value_of(arg_matches, "optimal_utilization_rate");
             let loan_to_value_ratio = value_of(arg_matches, "loan_to_value_ratio");
             let liquidation_bonus = value_of(arg_matches, "liquidation_bonus");
+            let protocol_liquidation_fee = value_of(arg_matches, "protocol_liquidation_fee");
             let liquidation_threshold = value_of(arg_matches, "liquidation_threshold");
             let min_borrow_rate = value_of(arg_matches, "min_borrow_rate");
             let optimal_borrow_rate = value_of(arg_matches, "optimal_borrow_rate");
@@ -743,6 +744,7 @@ fn main() {
                     deposit_limit,
                     borrow_limit,
                     fee_receiver,
+                    protocol_liquidation_fee,
                 },
                 pyth_product_pubkey,
                 pyth_price_pubkey,
@@ -1068,6 +1070,15 @@ fn command_update_reserve(
             reserve_config.liquidation_bonus.unwrap(),
         );
         reserve.config.liquidation_bonus = reserve_config.liquidation_bonus.unwrap();
+    }
+
+    if reserve_config.protocol_liquidation_fee.is_some() {
+        println!(
+            "Updating protocol_liquidation_fee from {} to {}",
+            reserve.config.protocol_liquidation_fee,
+            reserve_config.protocol_liquidation_fee.unwrap(),
+        );
+        reserve.config.protocol_liquidation_fee = reserve_config.protocol_liquidation_fee.unwrap();
     }
 
     if reserve_config.liquidation_threshold.is_some() {
