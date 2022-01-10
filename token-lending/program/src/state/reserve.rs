@@ -302,8 +302,7 @@ impl Reserve {
         }
 
         let withdraw_amount = withdraw_amount
-            .checked_sub(protocol_fee_amount)
-            .unwrap_or(0);
+            .saturating_sub(protocol_fee_amount);
 
         Ok(CalculateLiquidationResult {
             settle_amount,
