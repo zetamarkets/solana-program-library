@@ -406,6 +406,7 @@ async fn test_update_reserve_config() {
         optimal_utilization_rate: 75,
         loan_to_value_ratio: 45,
         liquidation_bonus: 10,
+        protocol_liquidation_fee: 20,
         liquidation_threshold: 65,
         min_borrow_rate: 1,
         optimal_borrow_rate: 5,

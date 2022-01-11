@@ -44,6 +44,7 @@ pub fn test_reserve_config() -> ReserveConfig {
         optimal_utilization_rate: 80,
         loan_to_value_ratio: 50,
         liquidation_bonus: 5,
+        protocol_liquidation_fee: 20,
         liquidation_threshold: 55,
         min_borrow_rate: 0,
         optimal_borrow_rate: 4,

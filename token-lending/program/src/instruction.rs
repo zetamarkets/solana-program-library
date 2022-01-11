@@ -698,6 +698,7 @@ impl LendingInstruction {
                 buf.extend_from_slice(&config.deposit_limit.to_le_bytes());
                 buf.extend_from_slice(&config.borrow_limit.to_le_bytes());
                 buf.extend_from_slice(&config.fee_receiver.to_bytes());
+                buf.extend_from_slice(&config.protocol_liquidation_fee.to_le_bytes());
             }
         }
         buf
