@@ -382,7 +382,7 @@ pub enum LendingInstruction {
 
     // 17
     /// Claims unclaimed reserve protocol fees
-    ClaimProtocolFees,
+    ClaimReserveProtocolFees,
 }
 
 impl LendingInstruction {
@@ -704,7 +704,7 @@ impl LendingInstruction {
                 buf.extend_from_slice(&config.fee_receiver.to_bytes());
                 buf.extend_from_slice(&config.protocol_liquidation_fee.to_le_bytes());
             }
-            Self::ClaimProtocolFees => {
+            Self::ClaimReserveProtocolFees => {
                 buf.push(17);
             }
         }
@@ -1232,7 +1232,7 @@ pub fn update_reserve_config(
     }
 }
 
-/// Creates an 'ClaimProtocolFees' instruction
+/// Creates an 'ClaimReserveProtocolFees' instruction
 pub fn claim_protocol_fees(
     program_id: Pubkey,
     reserve_pubkey: Pubkey,
@@ -1256,6 +1256,6 @@ pub fn claim_protocol_fees(
     Instruction {
         program_id,
         accounts,
-        data: LendingInstruction::ClaimProtocolFees.pack(),
+        data: LendingInstruction::ClaimReserveProtocolFees.pack(),
     }
 }

@@ -125,9 +125,9 @@ pub fn process_instruction(
             msg!("Instruction: UpdateReserveConfig");
             process_update_reserve_config(program_id, config, accounts)
         }
-        LendingInstruction::ClaimProtocolFees => {
+        LendingInstruction::ClaimReserveProtocolFees => {
             msg!("Instruction: Update");
-            process_claim_protocol_fees(program_id, accounts)
+            process_claim_reserve_protocol_fees(program_id, accounts)
         }
     }
 }
@@ -2059,7 +2059,7 @@ fn process_update_reserve_config(
 }
 
 #[inline(never)] // avoid stack frame limit
-fn process_claim_protocol_fees(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+fn process_claim_reserve_protocol_fees(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
     let reserve_info = next_account_info(account_info_iter)?;
     let lending_market_info = next_account_info(account_info_iter)?;
