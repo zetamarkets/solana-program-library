@@ -379,6 +379,10 @@ pub enum LendingInstruction {
         /// Reserve config to update to
         config: ReserveConfig,
     },
+
+    // 17
+    /// Claims unclaimed reserve protocol fees
+    ClaimProtocolFees,
 }
 
 impl LendingInstruction {
@@ -699,6 +703,9 @@ impl LendingInstruction {
                 buf.extend_from_slice(&config.borrow_limit.to_le_bytes());
                 buf.extend_from_slice(&config.fee_receiver.to_bytes());
                 buf.extend_from_slice(&config.protocol_liquidation_fee.to_le_bytes());
+            }
+            Self::ClaimProtocolFees => {
+                buf.push(17);
             }
         }
         buf
@@ -1222,5 +1229,33 @@ pub fn update_reserve_config(
         program_id,
         accounts,
         data: LendingInstruction::UpdateReserveConfig { config }.pack(),
+    }
+}
+
+/// Creates an 'ClaimProtocolFees' instruction
+pub fn claim_protocol_fees(
+    program_id: Pubkey,
+    reserve_pubkey: Pubkey,
+    lending_market_pubkey: Pubkey,
+    lending_market_owner_pubkey: Pubkey,
+    reserve_liquidity_supply_pubkey: Pubkey,
+    reserve_liquidity_fee_receiver_pubkey: Pubkey,
+) -> Instruction {
+    let (lending_market_authority_pubkey, _bump_seed) = Pubkey::find_program_address(
+        &[&lending_market_pubkey.to_bytes()[..PUBKEY_BYTES]],
+        &program_id,
+    );
+    let accounts = vec![
+        AccountMeta::new(reserve_pubkey, false),
+        AccountMeta::new_readonly(lending_market_pubkey, false),
+        AccountMeta::new_readonly(lending_market_authority_pubkey, false),
+        AccountMeta::new_readonly(lending_market_owner_pubkey, true),
+        AccountMeta::new(reserve_liquidity_supply_pubkey, false),
+        AccountMeta::new(reserve_liquidity_fee_receiver_pubkey, false),
+    ];
+    Instruction {
+        program_id,
+        accounts,
+        data: LendingInstruction::ClaimProtocolFees.pack(),
     }
 }
