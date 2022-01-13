@@ -126,7 +126,7 @@ pub fn process_instruction(
             process_update_reserve_config(program_id, config, accounts)
         }
         LendingInstruction::ClaimReserveProtocolFees => {
-            msg!("Instruction: Update");
+            msg!("Instruction: ClaimReserveProtocolFees");
             process_claim_reserve_protocol_fees(program_id, accounts)
         }
     }
