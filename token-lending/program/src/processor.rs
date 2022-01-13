@@ -2084,6 +2084,10 @@ fn process_claim_protocol_fees(program_id: &Pubkey, accounts: &[AccountInfo]) ->
     }
 
     let lending_market = LendingMarket::unpack(&lending_market_info.data.borrow())?;
+    if &lending_market.token_program_id != token_program_id.key {
+        msg!("Lending market token program does not match the token program provided");
+        return Err(LendingError::InvalidTokenProgram.into());
+    }
     if lending_market_info.owner != program_id {
         msg!(
             "Lending market provided is not owned by the lending program  {} != {}",
@@ -2114,7 +2118,10 @@ fn process_claim_protocol_fees(program_id: &Pubkey, accounts: &[AccountInfo]) ->
         return Err(LendingError::InvalidMarketAuthority.into());
     }
 
-    // TODO - add checks for the reserve liquidity supply, fee receiver, and token program
+    if &reserve.config.fee_receiver != reserve_liquidity_fee_receiver_info.key {
+        msg!("Reserve liquidity fee receiver does not match the reserve liquidity fee receiver provided");
+        return Err(LendingError::InvalidAccountInput.into());
+    }
 
     // transfer accumulated fees to fee receiver
     let amount_to_transfer = reserve
