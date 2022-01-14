@@ -291,10 +291,13 @@ impl Reserve {
             }
         }
 
-        // the bonus amount
+        // calc the bonus amount
+        let base_amount = Decimal::from(withdraw_amount)
+            .try_div(bonus_rate)?;
         let bonus_amount = Decimal::from(withdraw_amount)
-            .try_sub(Decimal::from(withdraw_amount).try_div(bonus_rate)?)?;
+            .try_sub(base_amount)?;
 
+        // protocol takes a percentage of the bonus
         let mut protocol_fee_amount = bonus_amount.try_mul(protocol_fee_rate)?.try_floor_u64()?;
         // minimum protocol fee
         if protocol_fee_amount == 0 {
