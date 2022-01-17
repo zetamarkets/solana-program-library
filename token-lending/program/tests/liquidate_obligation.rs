@@ -162,6 +162,7 @@ async fn test_success() {
         initial_liquidity_supply_balance + USDC_LIQUIDATION_AMOUNT_FRACTIONAL
     );
 
+    // the liquidation protocol stays in the reserve and is
     let user_collateral_balance =
         get_token_balance(&mut banks_client, sol_test_reserve.user_collateral_pubkey).await;
     assert_eq!(
@@ -186,5 +187,15 @@ async fn test_success() {
     assert_eq!(
         obligation.borrows[0].borrowed_amount_wads,
         (USDC_BORROW_AMOUNT_FRACTIONAL - USDC_LIQUIDATION_AMOUNT_FRACTIONAL).into()
-    )
+    );
+
+    let sol_reserve = sol_test_reserve.get_state(&mut banks_client).await;
+    assert_eq!(
+        sol_reserve
+            .liquidity
+            .accumulated_protocol_fees
+            .try_floor_u64()
+            .unwrap(),
+        SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS
+    );
 }

@@ -1149,7 +1149,7 @@ pub fn liquidate_obligation(
             AccountMeta::new(destination_collateral_pubkey, false),
             AccountMeta::new(repay_reserve_pubkey, false),
             AccountMeta::new(repay_reserve_liquidity_supply_pubkey, false),
-            AccountMeta::new_readonly(withdraw_reserve_pubkey, false),
+            AccountMeta::new(withdraw_reserve_pubkey, false),
             AccountMeta::new(withdraw_reserve_collateral_supply_pubkey, false),
             AccountMeta::new(obligation_pubkey, false),
             AccountMeta::new_readonly(lending_market_pubkey, false),
