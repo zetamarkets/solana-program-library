@@ -486,7 +486,6 @@ impl LendingInstruction {
                 Self::WithdrawObligationCollateralAndRedeemReserveCollateral { collateral_amount }
             }
             16 => {
-                let (liquidity_amount, rest) = Self::unpack_u64(rest)?;
                 let (optimal_utilization_rate, rest) = Self::unpack_u8(rest)?;
                 let (loan_to_value_ratio, rest) = Self::unpack_u8(rest)?;
                 let (liquidation_bonus, rest) = Self::unpack_u8(rest)?;
@@ -501,8 +500,7 @@ impl LendingInstruction {
                 let (deposit_limit, rest) = Self::unpack_u64(rest)?;
                 let (borrow_limit, rest) = Self::unpack_u64(rest)?;
                 let (fee_receiver, _) = Self::unpack_pubkey(rest)?;
-                Self::InitReserve {
-                    liquidity_amount,
+                Self::UpdateReserveConfig {
                     config: ReserveConfig {
                         optimal_utilization_rate,
                         loan_to_value_ratio,
@@ -522,7 +520,8 @@ impl LendingInstruction {
                         fee_receiver,
                     },
                 }
-            }
+            },
+            17 => Self::ClaimReserveProtocolFees,
             _ => {
                 msg!("Instruction cannot be unpacked");
                 return Err(LendingError::InstructionUnpackError.into());
@@ -692,6 +691,7 @@ impl LendingInstruction {
                 buf.extend_from_slice(&config.optimal_utilization_rate.to_le_bytes());
                 buf.extend_from_slice(&config.loan_to_value_ratio.to_le_bytes());
                 buf.extend_from_slice(&config.liquidation_bonus.to_le_bytes());
+                buf.extend_from_slice(&config.protocol_liquidation_fee.to_le_bytes());
                 buf.extend_from_slice(&config.liquidation_threshold.to_le_bytes());
                 buf.extend_from_slice(&config.min_borrow_rate.to_le_bytes());
                 buf.extend_from_slice(&config.optimal_borrow_rate.to_le_bytes());
@@ -702,7 +702,6 @@ impl LendingInstruction {
                 buf.extend_from_slice(&config.deposit_limit.to_le_bytes());
                 buf.extend_from_slice(&config.borrow_limit.to_le_bytes());
                 buf.extend_from_slice(&config.fee_receiver.to_bytes());
-                buf.extend_from_slice(&config.protocol_liquidation_fee.to_le_bytes());
             }
             Self::ClaimReserveProtocolFees => {
                 buf.push(17);
