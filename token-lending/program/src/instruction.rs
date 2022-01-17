@@ -520,7 +520,7 @@ impl LendingInstruction {
                         fee_receiver,
                     },
                 }
-            },
+            }
             17 => Self::ClaimReserveProtocolFees,
             _ => {
                 msg!("Instruction cannot be unpacked");
