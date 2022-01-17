@@ -35,6 +35,8 @@ async fn test_success() {
     const USDC_LIQUIDATION_AMOUNT_FRACTIONAL: u64 = USDC_BORROW_AMOUNT_FRACTIONAL / 2;
     // 800 USDC / 20 USDC per SOL -> 40 SOL + 10% bonus -> 44 SOL
     const SOL_LIQUIDATION_AMOUNT_LAMPORTS: u64 = 44 * LAMPORTS_TO_SOL * INITIAL_COLLATERAL_RATIO;
+    // 10% bonus -> 4 SOL - 50% bonus protocol fee -> 2 SOL
+    const SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS: u64 = 2 * LAMPORTS_TO_SOL * INITIAL_COLLATERAL_RATIO;
 
     const SOL_RESERVE_COLLATERAL_LAMPORTS: u64 = 2 * SOL_DEPOSIT_AMOUNT_LAMPORTS;
     const USDC_RESERVE_LIQUIDITY_FRACTIONAL: u64 = 2 * USDC_BORROW_AMOUNT_FRACTIONAL;
@@ -47,6 +49,7 @@ async fn test_success() {
     reserve_config.loan_to_value_ratio = 50;
     reserve_config.liquidation_threshold = 80;
     reserve_config.liquidation_bonus = 10;
+    reserve_config.protocol_liquidation_fee = 50;
 
     let sol_oracle = add_sol_oracle(&mut test);
     let sol_test_reserve = add_reserve(
@@ -162,14 +165,14 @@ async fn test_success() {
         get_token_balance(&mut banks_client, sol_test_reserve.user_collateral_pubkey).await;
     assert_eq!(
         user_collateral_balance,
-        initial_user_collateral_balance + SOL_LIQUIDATION_AMOUNT_LAMPORTS
+        initial_user_collateral_balance + (SOL_LIQUIDATION_AMOUNT_LAMPORTS - SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS)
     );
 
     let collateral_supply_balance =
         get_token_balance(&mut banks_client, sol_test_reserve.collateral_supply_pubkey).await;
     assert_eq!(
         collateral_supply_balance,
-        initial_collateral_supply_balance - SOL_LIQUIDATION_AMOUNT_LAMPORTS
+        initial_collateral_supply_balance - (SOL_LIQUIDATION_AMOUNT_LAMPORTS - SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS)
     );
 
     let obligation = test_obligation.get_state(&mut banks_client).await;
