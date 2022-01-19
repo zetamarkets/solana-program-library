@@ -690,6 +690,7 @@ impl TestLendingMarket {
                     repay_reserve.liquidity_supply_pubkey,
                     withdraw_reserve.pubkey,
                     withdraw_reserve.collateral_supply_pubkey,
+                    withdraw_reserve.collateral_mint_pubkey,
                     obligation.pubkey,
                     self.pubkey,
                     user_transfer_authority.pubkey(),

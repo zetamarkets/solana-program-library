@@ -1561,6 +1561,7 @@ fn process_liquidate_obligation(
     let repay_reserve_liquidity_supply_info = next_account_info(account_info_iter)?;
     let withdraw_reserve_info = next_account_info(account_info_iter)?;
     let withdraw_reserve_collateral_supply_info = next_account_info(account_info_iter)?;
+    let withdraw_reserve_collateral_mint_info = next_account_info(account_info_iter)?;
     let obligation_info = next_account_info(account_info_iter)?;
     let lending_market_info = next_account_info(account_info_iter)?;
     let lending_market_authority_info = next_account_info(account_info_iter)?;
@@ -1617,6 +1618,10 @@ fn process_liquidate_obligation(
     }
     if &withdraw_reserve.collateral.supply_pubkey != withdraw_reserve_collateral_supply_info.key {
         msg!("Withdraw reserve collateral supply does not match the withdraw reserve collateral supply provided");
+        return Err(LendingError::InvalidAccountInput.into());
+    }
+    if &withdraw_reserve.collateral.mint_pubkey != withdraw_reserve_collateral_mint_info.key {
+        msg!("Withdraw reserve collateral mint does not match the withdraw reserve collateral mint provided");
         return Err(LendingError::InvalidAccountInput.into());
     }
     if &withdraw_reserve.liquidity.supply_pubkey == source_liquidity_info.key {
@@ -1719,14 +1724,26 @@ fn process_liquidate_obligation(
     Obligation::pack(obligation, &mut obligation_info.data.borrow_mut())?;
 
     // protocol fees
+    // pseudo redeem the collateral tokens because fees are accumulated in the base liquidity token
+    let protocol_fee_liquidity_amount = withdraw_reserve.redeem_collateral(protocol_fee_amount)?;
     withdraw_reserve.liquidity.accumulated_protocol_fees = withdraw_reserve
         .liquidity
         .accumulated_protocol_fees
-        .try_add(Decimal::from(protocol_fee_amount))?;
+        .try_add(Decimal::from(protocol_fee_liquidity_amount))?;
+    withdraw_reserve.last_update.mark_stale();
     Reserve::pack(
         withdraw_reserve,
         &mut withdraw_reserve_info.data.borrow_mut(),
     )?;
+
+    spl_token_burn(TokenBurnParams {
+        mint: withdraw_reserve_collateral_mint_info.clone(),
+        source: withdraw_reserve_collateral_supply_info.clone(),
+        amount: protocol_fee_amount,
+        authority: lending_market_authority_info.clone(),
+        authority_signer_seeds,
+        token_program: token_program_id.clone(),
+    })?;
 
     spl_token_transfer(TokenTransferParams {
         source: source_liquidity_info.clone(),

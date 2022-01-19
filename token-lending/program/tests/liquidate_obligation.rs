@@ -25,7 +25,7 @@ async fn test_success() {
     );
 
     // limit to track compute unit increase
-    test.set_bpf_compute_max_units(51_000);
+    test.set_bpf_compute_max_units(65_000);
 
     // 100 SOL collateral
     const SOL_DEPOSIT_AMOUNT_LAMPORTS: u64 = 100 * LAMPORTS_TO_SOL * INITIAL_COLLATERAL_RATIO;
@@ -36,8 +36,7 @@ async fn test_success() {
     // 800 USDC / 20 USDC per SOL -> 40 SOL + 10% bonus -> 44 SOL
     const SOL_LIQUIDATION_AMOUNT_LAMPORTS: u64 = 44 * LAMPORTS_TO_SOL * INITIAL_COLLATERAL_RATIO;
     // 10% bonus -> 4 SOL - 50% bonus protocol fee -> 2 SOL
-    const SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS: u64 =
-        2 * LAMPORTS_TO_SOL * INITIAL_COLLATERAL_RATIO;
+    const SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS: u64 = 2 * LAMPORTS_TO_SOL;
 
     const SOL_RESERVE_COLLATERAL_LAMPORTS: u64 = 2 * SOL_DEPOSIT_AMOUNT_LAMPORTS;
     const USDC_RESERVE_LIQUIDITY_FRACTIONAL: u64 = 2 * USDC_BORROW_AMOUNT_FRACTIONAL;
@@ -59,7 +58,8 @@ async fn test_success() {
         &sol_oracle,
         &user_accounts_owner,
         AddReserveArgs {
-            collateral_amount: SOL_RESERVE_COLLATERAL_LAMPORTS,
+            collateral_amount: SOL_RESERVE_COLLATERAL_LAMPORTS * INITIAL_COLLATERAL_RATIO,
+            liquidity_amount: SOL_RESERVE_COLLATERAL_LAMPORTS,
             liquidity_mint_pubkey: spl_token::native_mint::id(),
             liquidity_mint_decimals: 9,
             config: reserve_config,
@@ -134,6 +134,7 @@ async fn test_success() {
                 usdc_test_reserve.liquidity_supply_pubkey,
                 sol_test_reserve.pubkey,
                 sol_test_reserve.collateral_supply_pubkey,
+                sol_test_reserve.collateral_mint_pubkey,
                 test_obligation.pubkey,
                 lending_market.pubkey,
                 user_transfer_authority.pubkey(),
@@ -175,8 +176,7 @@ async fn test_success() {
         get_token_balance(&mut banks_client, sol_test_reserve.collateral_supply_pubkey).await;
     assert_eq!(
         collateral_supply_balance,
-        initial_collateral_supply_balance
-            - (SOL_LIQUIDATION_AMOUNT_LAMPORTS - SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS)
+        initial_collateral_supply_balance - SOL_LIQUIDATION_AMOUNT_LAMPORTS
     );
 
     let obligation = test_obligation.get_state(&mut banks_client).await;
