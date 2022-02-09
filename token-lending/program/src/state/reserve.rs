@@ -38,6 +38,8 @@ pub struct Reserve {
     pub collateral: ReserveCollateral,
     /// Reserve configuration values
     pub config: ReserveConfig,
+    /// Whether the reserve is being flash borrowed from
+    pub borrowing: bool,
 }
 
 impl Reserve {
@@ -877,6 +879,7 @@ impl Pack for Reserve {
             config_deposit_limit,
             config_borrow_limit,
             config_fee_receiver,
+            borrowing,
             _padding,
         ) = array_refs![
             input,
@@ -909,7 +912,8 @@ impl Pack for Reserve {
             8,
             8,
             PUBKEY_BYTES,
-            248
+            1,
+            247
         ];
 
         let version = u8::from_le_bytes(*version);
@@ -960,6 +964,7 @@ impl Pack for Reserve {
                 borrow_limit: u64::from_le_bytes(*config_borrow_limit),
                 fee_receiver: Pubkey::new_from_array(*config_fee_receiver),
             },
+            borrowing: unpack_bool(borrowing)?,
         })
     }
 }

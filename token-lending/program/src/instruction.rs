@@ -379,6 +379,44 @@ pub enum LendingInstruction {
         /// Reserve config to update to
         config: ReserveConfig,
     },
+
+    // 17
+    /// Flash borrow reserve liquidity
+    //
+    /// Accounts expected by this instruction:
+    ///
+    ///   0. `[writable]` Source liquidity token account.
+    ///   1. `[writable]` Destination liquidity token account.
+    ///   2. `[writable]` Reserve account.
+    ///   3. `[]` Lending market account.
+    ///   4. `[]` Derived lending market authority.
+    ///   5. `[]` Instructions sysvar.
+    ///   6. `[]` Token program id.
+    FlashBorrowReserveLiquidity {
+        /// Amount of liquidity to flash borrow
+        liquidity_amount: u64,
+    },
+
+    // 18
+    /// Flash repay reserve liquidity
+    //
+    /// Accounts expected by this instruction:
+    ///
+    ///   0. `[writable]` Source liquidity token account.
+    ///                     $authority can transfer $liquidity_amount.
+    ///   1. `[writable]` Destination liquidity token account.
+    ///   2. `[writable]` Flash loan fee receiver account.
+    ///                     Must match the reserve liquidity fee receiver.
+    ///   3. `[writable]` Host fee receiver.
+    ///   4. `[writable]` Reserve account.
+    ///   5. `[]` Lending market account.
+    ///   6. `[signer]` User transfer authority ($authority).
+    ///   7. `[]` Instructions sysvar.
+    ///   8. `[]` Token program id.
+    FlashRepayReserveLiquidity {
+        /// Amount of liquidity to flash repay
+        liquidity_amount: u64,
+    },
 }
 
 impl LendingInstruction {
@@ -513,6 +551,14 @@ impl LendingInstruction {
                         fee_receiver,
                     },
                 }
+            }
+            17 => {
+                let (liquidity_amount, _rest) = Self::unpack_u64(rest)?;
+                Self::FlashBorrowReserveLiquidity { liquidity_amount }
+            }
+            18 => {
+                let (liquidity_amount, _rest) = Self::unpack_u64(rest)?;
+                Self::FlashRepayReserveLiquidity { liquidity_amount }
             }
             _ => {
                 msg!("Instruction cannot be unpacked");
@@ -691,6 +737,14 @@ impl LendingInstruction {
                 buf.extend_from_slice(&config.deposit_limit.to_le_bytes());
                 buf.extend_from_slice(&config.borrow_limit.to_le_bytes());
                 buf.extend_from_slice(&config.fee_receiver.to_bytes());
+            }
+            Self::FlashBorrowReserveLiquidity { liquidity_amount } => {
+                buf.push(17);
+                buf.extend_from_slice(&liquidity_amount.to_le_bytes());
+            }
+            Self::FlashRepayReserveLiquidity { liquidity_amount } => {
+                buf.push(18);
+                buf.extend_from_slice(&liquidity_amount.to_le_bytes());
             }
         }
         buf
@@ -1214,5 +1268,64 @@ pub fn update_reserve_config(
         program_id,
         accounts,
         data: LendingInstruction::UpdateReserveConfig { config }.pack(),
+    }
+}
+
+/// Creates a 'FlashBorrowReserveLiquidity' instruction.
+#[allow(clippy::too_many_arguments)]
+pub fn flash_borrow_reserve_liquidity(
+    program_id: Pubkey,
+    liquidity_amount: u64,
+    source_liquidity_pubkey: Pubkey,
+    destination_liquidity_pubkey: Pubkey,
+    reserve_pubkey: Pubkey,
+    lending_market_pubkey: Pubkey,
+) -> Instruction {
+    let (lending_market_authority_pubkey, _bump_seed) = Pubkey::find_program_address(
+        &[&lending_market_pubkey.to_bytes()[..PUBKEY_BYTES]],
+        &program_id,
+    );
+    Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(source_liquidity_pubkey, false),
+            AccountMeta::new(destination_liquidity_pubkey, false),
+            AccountMeta::new(reserve_pubkey, false),
+            AccountMeta::new_readonly(lending_market_pubkey, false),
+            AccountMeta::new_readonly(lending_market_authority_pubkey, false),
+            AccountMeta::new_readonly(sysvar::instructions::id(), false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+        ],
+        data: LendingInstruction::FlashBorrowReserveLiquidity { liquidity_amount }.pack(),
+    }
+}
+
+/// Creates a 'FlashRepayReserveLiquidity' instruction.
+#[allow(clippy::too_many_arguments)]
+pub fn flash_repay_reserve_liquidity(
+    program_id: Pubkey,
+    liquidity_amount: u64,
+    source_liquidity_pubkey: Pubkey,
+    destination_liquidity_pubkey: Pubkey,
+    reserve_liquidity_fee_receiver_pubkey: Pubkey,
+    host_fee_receiver_pubkey: Pubkey,
+    reserve_pubkey: Pubkey,
+    lending_market_pubkey: Pubkey,
+    user_transfer_authority_pubkey: Pubkey,
+) -> Instruction {
+    Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(source_liquidity_pubkey, false),
+            AccountMeta::new(destination_liquidity_pubkey, false),
+            AccountMeta::new(reserve_liquidity_fee_receiver_pubkey, false),
+            AccountMeta::new(host_fee_receiver_pubkey, false),
+            AccountMeta::new(reserve_pubkey, false),
+            AccountMeta::new_readonly(lending_market_pubkey, false),
+            AccountMeta::new_readonly(user_transfer_authority_pubkey, true),
+            AccountMeta::new_readonly(sysvar::instructions::id(), false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+        ],
+        data: LendingInstruction::FlashRepayReserveLiquidity { liquidity_amount }.pack(),
     }
 }

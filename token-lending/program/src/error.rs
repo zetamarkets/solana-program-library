@@ -159,10 +159,28 @@ pub enum LendingError {
     /// Not enough liquidity after flash loan
     #[error("Not enough liquidity after flash loan")]
     NotEnoughLiquidityAfterFlashLoan,
+
     // 45
     /// Null oracle config
     #[error("Null oracle config")]
     NullOracleConfig,
+    /// No cpi flash borrows allowed
+    #[error("No cpi flash borrows allowed")]
+    FlashBorrowCpi,
+    /// No corresponding repay found for flash borrow
+    #[error("No corresponding repay found for flash borrow")]
+    NoFlashRepayFound,
+    /// Invalid flash repay found for borrow
+    #[error("Invalid repay found for flash borrow")]
+    InvalidFlashRepay,
+    /// No cpi flash repays allowed
+    #[error("No cpi flash repays allowed")]
+    FlashRepayCpi,
+
+    // 50
+    /// Multiple flash borrows not allowed in the same transaction
+    #[error("Multiple flash borrows not allowed in the same transaction")]
+    MultipleFlashBorrows,
 }
 
 impl From<LendingError> for ProgramError {
