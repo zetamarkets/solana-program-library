@@ -3,17 +3,15 @@
 mod helpers;
 
 use helpers::*;
-use solana_program::instruction::AccountMeta;
 use solana_program_test::*;
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
-    transaction::{Transaction, TransactionError},
+    transaction::Transaction,
 };
-use spl_token::solana_program::instruction::InstructionError;
 use spl_token_lending::{
-    error::LendingError, instruction::flash_borrow_reserve_liquidity,
-    instruction::flash_repay_reserve_liquidity, processor::process_instruction,
+    instruction::flash_borrow_reserve_liquidity, instruction::flash_repay_reserve_liquidity,
+    processor::process_instruction,
 };
 
 #[tokio::test]
