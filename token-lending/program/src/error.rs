@@ -181,6 +181,9 @@ pub enum LendingError {
     /// Multiple flash borrows not allowed in the same transaction
     #[error("Multiple flash borrows not allowed in the same transaction")]
     MultipleFlashBorrows,
+    /// Flash loans are disabled for this reserve
+    #[error("Flash loans are disabled for this reserve")]
+    FlashLoansDisabled,
 }
 
 impl From<LendingError> for ProgramError {

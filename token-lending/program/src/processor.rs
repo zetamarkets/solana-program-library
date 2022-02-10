@@ -681,6 +681,11 @@ fn _flash_borrow_reserve_liquidity<'a>(
         return Err(LendingError::InvalidMarketAuthority.into());
     }
 
+    if reserve.config.fees.flash_loan_fee_wad == u64::MAX {
+        msg!("Flash loans are disabled for this reserve");
+        return Err(LendingError::FlashLoansDisabled.into());
+    }
+
     // @FIXME: if u64::MAX is flash loaned, fees should be inclusive as with ordinary borrows
     let flash_loan_amount = if liquidity_amount == u64::MAX {
         reserve.liquidity.available_amount
@@ -702,7 +707,6 @@ fn _flash_borrow_reserve_liquidity<'a>(
         return Err(LendingError::FlashBorrowCpi.into());
     }
 
-    // TODO can we use the enum instead?
     static FLASH_REPAY_INSTRUCTION: u8 = 18;
 
     // loop through instructions, looking for an equivalent repay to this borrow
