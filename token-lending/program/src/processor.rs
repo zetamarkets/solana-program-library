@@ -632,7 +632,7 @@ fn _flash_borrow_reserve_liquidity<'a>(
     lending_market_authority_info: &AccountInfo<'a>,
     sysvar_info: &AccountInfo<'a>,
     token_program_id: &AccountInfo<'a>,
-) -> Result<u64, ProgramError> {
+) -> ProgramResult {
     let lending_market = LendingMarket::unpack(&lending_market_info.data.borrow())?;
     if lending_market_info.owner != program_id {
         msg!("Lending market provided is not owned by the lending program");
@@ -747,7 +747,7 @@ fn _flash_borrow_reserve_liquidity<'a>(
         token_program: token_program_id.clone(),
     })?;
 
-    Ok(flash_loan_amount)
+    Ok(())
 }
 
 fn process_flash_repay_reserve_liquidity(
