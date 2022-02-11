@@ -738,6 +738,9 @@ fn _flash_borrow_reserve_liquidity<'a>(
         }
     }
 
+    reserve
+        .liquidity
+        .set_flash_borrow_amount(flash_loan_amount)?;
     reserve.liquidity.borrow(flash_loan_amount_decimal)?;
     reserve.borrowing = true;
     Reserve::pack(reserve, &mut reserve_info.data.borrow_mut())?;
@@ -839,7 +842,7 @@ fn _flash_repay_reserve_liquidity<'a>(
 
     // @FIXME: if u64::MAX is flash loaned, fees should be inclusive as with ordinary borrows
     let flash_loan_amount = if liquidity_amount == u64::MAX {
-        reserve.liquidity.available_amount
+        reserve.liquidity.flash_borrowed_amount
     } else {
         liquidity_amount
     };
@@ -862,6 +865,9 @@ fn _flash_repay_reserve_liquidity<'a>(
         return Err(LendingError::FlashRepayCpi.into());
     }
 
+    reserve
+        .liquidity
+        .verify_and_reset_flash_borrow_amount(flash_loan_amount)?;
     reserve
         .liquidity
         .repay(flash_loan_amount, flash_loan_amount_decimal)?;

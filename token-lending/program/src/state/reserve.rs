@@ -58,6 +58,7 @@ impl Reserve {
         self.liquidity = params.liquidity;
         self.collateral = params.collateral;
         self.config = params.config;
+        self.borrowing = false
     }
 
     /// Record deposited liquidity and return amount of collateral tokens to mint
@@ -365,6 +366,8 @@ pub struct ReserveLiquidity {
     pub available_amount: u64,
     /// Reserve liquidity borrowed
     pub borrowed_amount_wads: Decimal,
+    /// Amount of borrowed_amount_wads which is currently being flash borrowed
+    pub flash_borrowed_amount: u64,
     /// Reserve liquidity cumulative borrow rate
     pub cumulative_borrow_rate_wads: Decimal,
     /// Reserve liquidity market price in quote currency
@@ -382,6 +385,7 @@ impl ReserveLiquidity {
             switchboard_oracle_pubkey: params.switchboard_oracle_pubkey,
             available_amount: 0,
             borrowed_amount_wads: Decimal::zero(),
+            flash_borrowed_amount: 0,
             cumulative_borrow_rate_wads: Decimal::one(),
             market_price: params.market_price,
         }
@@ -439,6 +443,28 @@ impl ReserveLiquidity {
             .ok_or(LendingError::MathOverflow)?;
         let safe_settle_amount = settle_amount.min(self.borrowed_amount_wads);
         self.borrowed_amount_wads = self.borrowed_amount_wads.try_sub(safe_settle_amount)?;
+
+        Ok(())
+    }
+
+    /// Set the amount being flash borrowed
+    pub fn set_flash_borrow_amount(&mut self, flash_borrow_amount: u64) -> ProgramResult {
+        self.flash_borrowed_amount = flash_borrow_amount;
+
+        Ok(())
+    }
+
+    /// Verify and reset the flash borrow amount
+    pub fn verify_and_reset_flash_borrow_amount(
+        &mut self,
+        flash_borrow_amount: u64,
+    ) -> ProgramResult {
+        if flash_borrow_amount != self.flash_borrowed_amount {
+            msg!("Repay amount does not match flash borrowed amount");
+            return Err(LendingError::InvalidFlashRepay.into());
+        }
+
+        self.flash_borrowed_amount = 0;
 
         Ok(())
     }
@@ -765,6 +791,8 @@ impl Pack for Reserve {
             config_deposit_limit,
             config_borrow_limit,
             config_fee_receiver,
+            borrowing,
+            liquidity_flash_borrowed_amount,
             _padding,
         ) = mut_array_refs![
             output,
@@ -797,7 +825,9 @@ impl Pack for Reserve {
             8,
             8,
             PUBKEY_BYTES,
-            248
+            1,
+            8,
+            239
         ];
 
         // reserve
@@ -843,6 +873,10 @@ impl Pack for Reserve {
         *config_deposit_limit = self.config.deposit_limit.to_le_bytes();
         *config_borrow_limit = self.config.borrow_limit.to_le_bytes();
         config_fee_receiver.copy_from_slice(self.config.fee_receiver.as_ref());
+
+        // borrowing flag
+        pack_bool(self.borrowing, borrowing);
+        *liquidity_flash_borrowed_amount = self.liquidity.flash_borrowed_amount.to_le_bytes();
     }
 
     /// Unpacks a byte buffer into a [ReserveInfo](struct.ReserveInfo.html).
@@ -880,6 +914,7 @@ impl Pack for Reserve {
             config_borrow_limit,
             config_fee_receiver,
             borrowing,
+            liquidity_flash_borrowed_amount,
             _padding,
         ) = array_refs![
             input,
@@ -913,7 +948,8 @@ impl Pack for Reserve {
             8,
             PUBKEY_BYTES,
             1,
-            247
+            8,
+            239
         ];
 
         let version = u8::from_le_bytes(*version);
@@ -939,6 +975,7 @@ impl Pack for Reserve {
                 ),
                 available_amount: u64::from_le_bytes(*liquidity_available_amount),
                 borrowed_amount_wads: unpack_decimal(liquidity_borrowed_amount_wads),
+                flash_borrowed_amount: u64::from_le_bytes(*liquidity_flash_borrowed_amount),
                 cumulative_borrow_rate_wads: unpack_decimal(liquidity_cumulative_borrow_rate_wads),
                 market_price: unpack_decimal(liquidity_market_price),
             },
