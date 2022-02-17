@@ -261,12 +261,13 @@ pub enum LendingInstruction {
     ///   3. `[writable]` Repay reserve liquidity supply SPL Token account.
     ///   4. `[]` Withdraw reserve account - refreshed.
     ///   5. `[writable]` Withdraw reserve collateral supply SPL Token account.
-    ///   6. `[writable]` Obligation account - refreshed.
-    ///   7. `[]` Lending market account.
-    ///   8. `[]` Derived lending market authority.
-    ///   9. `[signer]` User transfer authority ($authority).
-    ///   10 `[]` Clock sysvar.
-    ///   11 `[]` Token program id.
+    ///   6. `[writable]` Withdraw reserve collateral mint
+    ///   7. `[writable]` Obligation account - refreshed.
+    ///   8. `[]` Lending market account.
+    ///   9. `[]` Derived lending market authority.
+    ///   10 `[signer]` User transfer authority ($authority).
+    ///   11 `[]` Clock sysvar.
+    ///   12 `[]` Token program id.
     LiquidateObligation {
         /// Amount of liquidity to repay - u64::MAX for up to 100% of borrowed amount
         liquidity_amount: u64,
