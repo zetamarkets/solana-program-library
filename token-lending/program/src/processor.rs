@@ -605,8 +605,9 @@ fn process_flash_borrow_reserve_liquidity(
     let lending_market_authority_info = next_account_info(account_info_iter)?;
     let sysvar_info = next_account_info(account_info_iter)?;
     let token_program_id = next_account_info(account_info_iter)?;
+    let clock = &Clock::from_account_info(next_account_info(account_info_iter)?)?;
 
-    // We don't care about the return value here, so just ignore it.
+    _refresh_reserve_interest(program_id, reserve_info, clock)?;
     _flash_borrow_reserve_liquidity(
         program_id,
         liquidity_amount,
@@ -831,7 +832,6 @@ fn _flash_repay_reserve_liquidity<'a>(
         return Err(LendingError::InvalidAccountInput.into());
     }
 
-    // @FIXME: if u64::MAX is flash loaned, fees should be inclusive as with ordinary borrows
     let flash_loan_amount = liquidity_amount;
 
     let flash_loan_amount_decimal = Decimal::from(flash_loan_amount);
