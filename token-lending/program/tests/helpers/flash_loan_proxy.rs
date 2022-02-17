@@ -181,7 +181,7 @@ pub fn repay_proxy(
             AccountMeta::new_readonly(sysvar::instructions::id(), false),
             AccountMeta::new_readonly(spl_token::id(), false),
         ],
-        data: FlashLoanProxyInstruction::ProxyBorrow { liquidity_amount }.pack(),
+        data: FlashLoanProxyInstruction::ProxyRepay { liquidity_amount }.pack(),
     }
 }
 
@@ -222,7 +222,7 @@ impl FlashLoanProxyInstruction {
                 buf.extend_from_slice(&liquidity_amount.to_le_bytes());
             }
             Self::ProxyRepay { liquidity_amount } => {
-                buf.push(0);
+                buf.push(1);
                 buf.extend_from_slice(&liquidity_amount.to_le_bytes());
             }
         }
