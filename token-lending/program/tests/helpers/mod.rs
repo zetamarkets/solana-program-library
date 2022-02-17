@@ -316,7 +316,7 @@ pub fn add_reserve(
 
     test.add_packable_account(
         config.fee_receiver,
-        u32::MAX as u64,
+        amount,
         &Token {
             mint: liquidity_mint_pubkey,
             owner: lending_market.owner.pubkey(),
@@ -1352,4 +1352,13 @@ pub async fn get_token_balance(banks_client: &mut BanksClient, pubkey: Pubkey) -
     spl_token::state::Account::unpack(&token.data[..])
         .unwrap()
         .amount
+}
+
+pub async fn get_token(
+    banks_client: &mut BanksClient,
+    pubkey: Pubkey,
+) -> spl_token::state::Account {
+    let token: Account = banks_client.get_account(pubkey).await.unwrap().unwrap();
+
+    spl_token::state::Account::unpack(&token.data[..]).unwrap()
 }

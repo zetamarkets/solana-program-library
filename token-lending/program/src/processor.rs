@@ -2146,6 +2146,10 @@ fn process_claim_reserve_protocol_fees(
         msg!("Reserve liquidity fee receiver does not match the reserve liquidity fee receiver provided");
         return Err(LendingError::InvalidAccountInput.into());
     }
+    if &reserve.liquidity.supply_pubkey != reserve_liquidity_supply_info.key {
+        msg!("Reserve liquidity supply does not match the reserve liquidity supply provided");
+        return Err(LendingError::InvalidAccountInput.into());
+    }
 
     // transfer accumulated fees to fee receiver
     let amount_to_transfer = reserve

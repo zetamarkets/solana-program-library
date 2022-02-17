@@ -11,7 +11,7 @@ use solana_sdk::{
 };
 use spl_token::instruction::approve;
 use spl_token_lending::{
-    instruction::{liquidate_obligation, refresh_obligation},
+    instruction::{claim_protocol_fees, liquidate_obligation, refresh_obligation},
     processor::process_instruction,
     state::INITIAL_COLLATERAL_RATIO,
 };
@@ -45,11 +45,11 @@ async fn test_success() {
     let user_transfer_authority = Keypair::new();
     let lending_market = add_lending_market(&mut test);
 
-    let mut reserve_config = test_reserve_config();
-    reserve_config.loan_to_value_ratio = 50;
-    reserve_config.liquidation_threshold = 80;
-    reserve_config.liquidation_bonus = 10;
-    reserve_config.protocol_liquidation_fee = 50;
+    let mut reserve_config_sol = test_reserve_config();
+    reserve_config_sol.loan_to_value_ratio = 50;
+    reserve_config_sol.liquidation_threshold = 80;
+    reserve_config_sol.liquidation_bonus = 10;
+    reserve_config_sol.protocol_liquidation_fee = 50;
 
     let sol_oracle = add_sol_oracle(&mut test);
     let sol_test_reserve = add_reserve(
@@ -62,11 +62,17 @@ async fn test_success() {
             liquidity_amount: SOL_RESERVE_COLLATERAL_LAMPORTS,
             liquidity_mint_pubkey: spl_token::native_mint::id(),
             liquidity_mint_decimals: 9,
-            config: reserve_config,
+            config: reserve_config_sol,
             mark_fresh: true,
             ..AddReserveArgs::default()
         },
     );
+
+    let mut reserve_config_usdc = test_reserve_config();
+    reserve_config_usdc.loan_to_value_ratio = 50;
+    reserve_config_usdc.liquidation_threshold = 80;
+    reserve_config_usdc.liquidation_bonus = 10;
+    reserve_config_usdc.protocol_liquidation_fee = 50;
 
     let usdc_mint = add_usdc_mint(&mut test);
     let usdc_oracle = add_usdc_oracle(&mut test);
@@ -81,7 +87,7 @@ async fn test_success() {
             liquidity_amount: USDC_RESERVE_LIQUIDITY_FRACTIONAL,
             liquidity_mint_pubkey: usdc_mint.pubkey,
             liquidity_mint_decimals: usdc_mint.decimals,
-            config: reserve_config,
+            config: reserve_config_usdc,
             mark_fresh: true,
             ..AddReserveArgs::default()
         },
@@ -163,7 +169,7 @@ async fn test_success() {
         initial_liquidity_supply_balance + USDC_LIQUIDATION_AMOUNT_FRACTIONAL
     );
 
-    // the liquidation protocol stays in the reserve and is
+    // the liquidation protocol fee stays in the reserve custody
     let user_collateral_balance =
         get_token_balance(&mut banks_client, sol_test_reserve.user_collateral_pubkey).await;
     assert_eq!(
@@ -196,6 +202,37 @@ async fn test_success() {
             .accumulated_protocol_fees
             .try_floor_u64()
             .unwrap(),
+        SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS
+    );
+
+    let fee_reciever_pre_claim_balance =
+        get_token_balance(&mut banks_client, sol_test_reserve.config.fee_receiver).await;
+    assert_eq!(fee_reciever_pre_claim_balance, 0);
+
+    let token_liquidity =
+        get_token(&mut banks_client, sol_test_reserve.liquidity_supply_pubkey).await;
+    let token_fee_reciever =
+        get_token(&mut banks_client, sol_test_reserve.config.fee_receiver).await;
+    assert_eq!(token_liquidity.mint, token_fee_reciever.mint);
+
+    let mut transaction2 = Transaction::new_with_payer(
+        &[claim_protocol_fees(
+            spl_token_lending::id(),
+            sol_test_reserve.pubkey,
+            lending_market.pubkey,
+            lending_market.owner.pubkey(),
+            sol_test_reserve.liquidity_supply_pubkey,
+            sol_test_reserve.config.fee_receiver,
+        )],
+        Some(&payer.pubkey()),
+    );
+    transaction2.sign(&[&payer, &lending_market.owner], recent_blockhash);
+    assert!(banks_client.process_transaction(transaction2).await.is_ok());
+
+    let fee_reciever_post_claim_balance =
+        get_token_balance(&mut banks_client, sol_test_reserve.config.fee_receiver).await;
+    assert_eq!(
+        fee_reciever_post_claim_balance,
         SOL_LIQUIDATION_PROTOCOL_FEE_AMOUNT_LAMPORTS
     );
 }

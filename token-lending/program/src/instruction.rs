@@ -368,13 +368,13 @@ pub enum LendingInstruction {
     ///
     /// Accounts expected by this instruction:
     ///
-    ///   1. `[writable]` Reserve account - refreshed
-    ///   2 `[]` Lending market account.
-    ///   3 `[]` Derived lending market authority.
-    ///   4 `[signer]` Lending market owner.
-    ///   5 `[]` Pyth product key.
-    ///   6 `[]` Pyth price key.
-    ///   7 `[]` Switchboard key.
+    ///   0. `[writable]` Reserve account - refreshed
+    ///   1. `[]` Lending market account.
+    ///   2. `[]` Derived lending market authority.
+    ///   3. `[signer]` Lending market owner.
+    ///   4. `[]` Pyth product key.
+    ///   5. `[]` Pyth price key.
+    ///   6. `[]` Switchboard key.
     UpdateReserveConfig {
         /// Reserve config to update to
         config: ReserveConfig,
@@ -382,6 +382,16 @@ pub enum LendingInstruction {
 
     // 17
     /// Claims unclaimed reserve protocol fees
+    ///
+    /// Accounts expected by this instruction:
+    ///
+    ///   0. `[writable]` Reserve account.
+    ///   1. `[]` Lending market account.
+    ///   2. `[]` Derived lending market authority.
+    ///   3. `[signer]` Lending market owner.
+    ///   4. `[writable]` Reserve liquidity supply SPL Token account.
+    ///   5. `[writable]` Borrow reserve liquidity fee receiver account.
+    ///   6. `[]` Token program id.
     ClaimReserveProtocolFees,
 }
 
@@ -419,7 +429,7 @@ impl LendingInstruction {
                 let (host_fee_percentage, rest) = Self::unpack_u8(rest)?;
                 let (deposit_limit, rest) = Self::unpack_u64(rest)?;
                 let (borrow_limit, rest) = Self::unpack_u64(rest)?;
-                let (fee_receiver, _) = Self::unpack_pubkey(rest)?;
+                let (fee_receiver, _rest) = Self::unpack_pubkey(rest)?;
                 Self::InitReserve {
                     liquidity_amount,
                     config: ReserveConfig {
@@ -499,7 +509,7 @@ impl LendingInstruction {
                 let (host_fee_percentage, rest) = Self::unpack_u8(rest)?;
                 let (deposit_limit, rest) = Self::unpack_u64(rest)?;
                 let (borrow_limit, rest) = Self::unpack_u64(rest)?;
-                let (fee_receiver, _) = Self::unpack_pubkey(rest)?;
+                let (fee_receiver, _rest) = Self::unpack_pubkey(rest)?;
                 Self::UpdateReserveConfig {
                     config: ReserveConfig {
                         optimal_utilization_rate,
@@ -1253,6 +1263,7 @@ pub fn claim_protocol_fees(
         AccountMeta::new_readonly(lending_market_owner_pubkey, true),
         AccountMeta::new(reserve_liquidity_supply_pubkey, false),
         AccountMeta::new(reserve_liquidity_fee_receiver_pubkey, false),
+        AccountMeta::new_readonly(spl_token::id(), false),
     ];
     Instruction {
         program_id,
