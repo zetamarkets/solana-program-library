@@ -261,7 +261,7 @@ async fn test_success_multiple_borrow_repays() {
 }
 
 #[tokio::test]
-async fn test_success_max_uint() {
+async fn test_fail_max_uint() {
     let mut test = ProgramTest::new(
         "spl_token_lending",
         spl_token_lending::id(),
@@ -274,7 +274,6 @@ async fn test_success_max_uint() {
     const FLASH_LOAN_AMOUNT: u64 = u64::MAX;
     const LIQUIDITY_AMOUNT: u64 = 1_000 * FRACTIONAL_TO_USDC;
     const FEE_AMOUNT: u64 = 3_000_000;
-    const HOST_FEE_AMOUNT: u64 = 600_000;
 
     test.prefer_bpf(false);
 
@@ -341,37 +340,19 @@ async fn test_success_max_uint() {
     );
 
     transaction.sign(&[&payer, &user_accounts_owner], recent_blockhash);
-    assert!(banks_client.process_transaction(transaction).await.is_ok());
 
-    let usdc_reserve = usdc_test_reserve.get_state(&mut banks_client).await;
+    // check that transaction fails
     assert_eq!(
-        usdc_reserve.liquidity.available_amount,
-        initial_available_amount
+        banks_client
+            .process_transaction(transaction)
+            .await
+            .unwrap_err()
+            .unwrap(),
+        TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(LendingError::InsufficientLiquidity as u32)
+        )
     );
-
-    let (total_fee, host_fee) = usdc_reserve
-        .config
-        .fees
-        .calculate_flash_loan_fees(LIQUIDITY_AMOUNT.into())
-        .unwrap();
-    assert_eq!(total_fee, FEE_AMOUNT);
-    assert_eq!(host_fee, HOST_FEE_AMOUNT);
-
-    let liquidity_supply =
-        get_token_balance(&mut banks_client, usdc_test_reserve.liquidity_supply_pubkey).await;
-    assert_eq!(liquidity_supply, initial_liquidity_supply);
-
-    let token_balance =
-        get_token_balance(&mut banks_client, usdc_test_reserve.user_liquidity_pubkey).await;
-    assert_eq!(token_balance, initial_token_balance - FEE_AMOUNT);
-
-    let fee_balance =
-        get_token_balance(&mut banks_client, usdc_test_reserve.config.fee_receiver).await;
-    assert_eq!(fee_balance, FEE_AMOUNT - HOST_FEE_AMOUNT);
-
-    let host_fee_balance =
-        get_token_balance(&mut banks_client, usdc_test_reserve.liquidity_host_pubkey).await;
-    assert_eq!(host_fee_balance, HOST_FEE_AMOUNT);
 }
 
 #[tokio::test]
