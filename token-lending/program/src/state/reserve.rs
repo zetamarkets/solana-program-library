@@ -38,8 +38,6 @@ pub struct Reserve {
     pub collateral: ReserveCollateral,
     /// Reserve configuration values
     pub config: ReserveConfig,
-    /// Whether the reserve is being flash borrowed from
-    pub borrowing: bool,
 }
 
 impl Reserve {
@@ -58,7 +56,6 @@ impl Reserve {
         self.liquidity = params.liquidity;
         self.collateral = params.collateral;
         self.config = params.config;
-        self.borrowing = false
     }
 
     /// Record deposited liquidity and return amount of collateral tokens to mint
@@ -728,7 +725,7 @@ impl IsInitialized for Reserve {
     }
 }
 
-const RESERVE_LEN: usize = 619; // 1 + 8 + 1 + 32 + 32 + 1 + 32 + 32 + 32 + 8 + 16 + 16 + 16 + 32 + 8 + 32 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 8 + 8 + 1 + 8 + 8 + 32 + 1 + 247
+const RESERVE_LEN: usize = 619; // 1 + 8 + 1 + 32 + 32 + 1 + 32 + 32 + 32 + 8 + 16 + 16 + 16 + 32 + 8 + 32 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 8 + 8 + 1 + 8 + 8 + 32 + 248
 impl Pack for Reserve {
     const LEN: usize = RESERVE_LEN;
 
@@ -766,7 +763,6 @@ impl Pack for Reserve {
             config_deposit_limit,
             config_borrow_limit,
             config_fee_receiver,
-            borrowing,
             _padding,
         ) = mut_array_refs![
             output,
@@ -799,8 +795,7 @@ impl Pack for Reserve {
             8,
             8,
             PUBKEY_BYTES,
-            1,
-            247
+            248
         ];
 
         // reserve
@@ -846,9 +841,6 @@ impl Pack for Reserve {
         *config_deposit_limit = self.config.deposit_limit.to_le_bytes();
         *config_borrow_limit = self.config.borrow_limit.to_le_bytes();
         config_fee_receiver.copy_from_slice(self.config.fee_receiver.as_ref());
-
-        // borrowing flag
-        pack_bool(self.borrowing, borrowing);
     }
 
     /// Unpacks a byte buffer into a [ReserveInfo](struct.ReserveInfo.html).
@@ -885,7 +877,6 @@ impl Pack for Reserve {
             config_deposit_limit,
             config_borrow_limit,
             config_fee_receiver,
-            borrowing,
             _padding,
         ) = array_refs![
             input,
@@ -918,8 +909,7 @@ impl Pack for Reserve {
             8,
             8,
             PUBKEY_BYTES,
-            1,
-            247
+            248
         ];
 
         let version = u8::from_le_bytes(*version);
@@ -970,7 +960,6 @@ impl Pack for Reserve {
                 borrow_limit: u64::from_le_bytes(*config_borrow_limit),
                 fee_receiver: Pubkey::new_from_array(*config_fee_receiver),
             },
-            borrowing: unpack_bool(borrowing)?,
         })
     }
 }
