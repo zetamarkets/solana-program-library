@@ -296,6 +296,20 @@ impl Reserve {
             withdraw_amount,
         })
     }
+
+    /// Calculate protocol cut of liquidation bonus
+    pub fn calculate_protocol_liquidation_fee(
+        &self,
+        amount_liquidated: u64,
+    ) -> Result<u64, ProgramError> {
+        let bonus_rate = Rate::from_percent(self.config.liquidation_bonus).try_add(Rate::one())?;
+        let amount_liquidated_wads = Decimal::from(amount_liquidated);
+
+        let bonus = amount_liquidated_wads.try_sub(amount_liquidated_wads.try_div(bonus_rate)?)?;
+
+        let protocol_fee = bonus.try_mul(Rate::from_percent(30))?.try_ceil_u64()?;
+        Ok(protocol_fee)
+    }
 }
 
 /// Initialize a reserve

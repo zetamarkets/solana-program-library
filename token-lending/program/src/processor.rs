@@ -125,6 +125,14 @@ pub fn process_instruction(
             msg!("Instruction: UpdateReserveConfig");
             process_update_reserve_config(program_id, config, accounts)
         }
+        LendingInstruction::LiquidateObligationAndRedeemReserveCollateral { liquidity_amount } => {
+            msg!("Instruction: Liquidate Obligation and Redeem Reserve Collateral");
+            process_liquidate_obligation_and_redeem_reserve_collateral(
+                program_id,
+                liquidity_amount,
+                accounts,
+            )
+        }
     }
 }
 
@@ -637,7 +645,7 @@ fn _redeem_reserve_collateral<'a>(
     user_transfer_authority_info: &AccountInfo<'a>,
     clock: &Clock,
     token_program_id: &AccountInfo<'a>,
-) -> ProgramResult {
+) -> Result<u64, ProgramError> {
     let lending_market = LendingMarket::unpack(&lending_market_info.data.borrow())?;
     if lending_market_info.owner != program_id {
         msg!("Lending market provided is not owned by the lending program");
@@ -713,7 +721,7 @@ fn _redeem_reserve_collateral<'a>(
         token_program: token_program_id.clone(),
     })?;
 
-    Ok(())
+    Ok(liquidity_amount)
 }
 
 #[inline(never)] // avoid stack frame limit
@@ -1577,6 +1585,42 @@ fn process_liquidate_obligation(
     let clock = &Clock::from_account_info(next_account_info(account_info_iter)?)?;
     let token_program_id = next_account_info(account_info_iter)?;
 
+    let _withdraw_collateral_amount = _liquidate_obligation(
+        program_id,
+        liquidity_amount,
+        source_liquidity_info,
+        destination_collateral_info,
+        repay_reserve_info,
+        repay_reserve_liquidity_supply_info,
+        withdraw_reserve_info,
+        withdraw_reserve_collateral_supply_info,
+        obligation_info,
+        lending_market_info,
+        lending_market_authority_info,
+        user_transfer_authority_info,
+        clock,
+        token_program_id,
+    )?;
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn _liquidate_obligation<'a>(
+    program_id: &Pubkey,
+    liquidity_amount: u64,
+    source_liquidity_info: &AccountInfo<'a>,
+    destination_collateral_info: &AccountInfo<'a>,
+    repay_reserve_info: &AccountInfo<'a>,
+    repay_reserve_liquidity_supply_info: &AccountInfo<'a>,
+    withdraw_reserve_info: &AccountInfo<'a>,
+    withdraw_reserve_collateral_supply_info: &AccountInfo<'a>,
+    obligation_info: &AccountInfo<'a>,
+    lending_market_info: &AccountInfo<'a>,
+    lending_market_authority_info: &AccountInfo<'a>,
+    user_transfer_authority_info: &AccountInfo<'a>,
+    clock: &Clock,
+    token_program_id: &AccountInfo<'a>,
+) -> Result<u64, ProgramError> {
     let lending_market = LendingMarket::unpack(&lending_market_info.data.borrow())?;
     if lending_market_info.owner != program_id {
         msg!("Lending market provided is not owned by the lending program");
@@ -1740,6 +1784,93 @@ fn process_liquidate_obligation(
         authority_signer_seeds,
         token_program: token_program_id.clone(),
     })?;
+
+    Ok(withdraw_amount)
+}
+
+#[inline(never)] // avoid stack frame limit
+fn process_liquidate_obligation_and_redeem_reserve_collateral(
+    program_id: &Pubkey,
+    liquidity_amount: u64,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    if liquidity_amount == 0 {
+        msg!("Liquidity amount provided cannot be zero");
+        return Err(LendingError::InvalidAmount.into());
+    }
+
+    let account_info_iter = &mut accounts.iter();
+    let source_liquidity_info = next_account_info(account_info_iter)?;
+    let destination_collateral_info = next_account_info(account_info_iter)?;
+    let destination_liquidity_info = next_account_info(account_info_iter)?;
+    let repay_reserve_info = next_account_info(account_info_iter)?;
+    let repay_reserve_liquidity_supply_info = next_account_info(account_info_iter)?;
+    let withdraw_reserve_info = next_account_info(account_info_iter)?;
+    let withdraw_reserve_collateral_mint_info = next_account_info(account_info_iter)?;
+    let withdraw_reserve_collateral_supply_info = next_account_info(account_info_iter)?;
+    let withdraw_reserve_liquidity_supply_info = next_account_info(account_info_iter)?;
+    let withdraw_reserve_liquidity_fee_receiver_info = next_account_info(account_info_iter)?;
+    let obligation_info = next_account_info(account_info_iter)?;
+    let lending_market_info = next_account_info(account_info_iter)?;
+    let lending_market_authority_info = next_account_info(account_info_iter)?;
+    let user_transfer_authority_info = next_account_info(account_info_iter)?;
+    let clock = &Clock::from_account_info(next_account_info(account_info_iter)?)?;
+    let token_program_id = next_account_info(account_info_iter)?;
+
+    let withdraw_collateral_amount = _liquidate_obligation(
+        program_id,
+        liquidity_amount,
+        source_liquidity_info,
+        destination_collateral_info,
+        repay_reserve_info,
+        repay_reserve_liquidity_supply_info,
+        withdraw_reserve_info,
+        withdraw_reserve_collateral_supply_info,
+        obligation_info,
+        lending_market_info,
+        lending_market_authority_info,
+        user_transfer_authority_info,
+        clock,
+        token_program_id,
+    )?;
+
+    _refresh_reserve_interest(program_id, withdraw_reserve_info, clock)?;
+    let withdraw_liquidity_amount = _redeem_reserve_collateral(
+        program_id,
+        withdraw_collateral_amount,
+        destination_collateral_info,
+        destination_liquidity_info,
+        withdraw_reserve_info,
+        withdraw_reserve_collateral_mint_info,
+        withdraw_reserve_liquidity_supply_info,
+        lending_market_info,
+        lending_market_authority_info,
+        user_transfer_authority_info,
+        clock,
+        token_program_id,
+    )?;
+    let mut withdraw_reserve = Reserve::unpack(&withdraw_reserve_info.data.borrow())?;
+    if &withdraw_reserve.config.fee_receiver != withdraw_reserve_liquidity_fee_receiver_info.key {
+        msg!("Withdraw reserve liquidity fee receiver does not match the reserve liquidity fee receiver provided");
+        return Err(LendingError::InvalidAccountInput.into());
+    }
+    let protocol_fee =
+        withdraw_reserve.calculate_protocol_liquidation_fee(withdraw_liquidity_amount)?;
+
+    spl_token_transfer(TokenTransferParams {
+        source: destination_liquidity_info.clone(),
+        destination: withdraw_reserve_liquidity_fee_receiver_info.clone(),
+        amount: protocol_fee,
+        authority: user_transfer_authority_info.clone(),
+        authority_signer_seeds: &[],
+        token_program: token_program_id.clone(),
+    })?;
+
+    withdraw_reserve.last_update.mark_stale();
+    Reserve::pack(
+        withdraw_reserve,
+        &mut withdraw_reserve_info.data.borrow_mut(),
+    )?;
 
     Ok(())
 }
@@ -1971,7 +2102,8 @@ fn process_withdraw_obligation_collateral_and_redeem_reserve_liquidity(
         user_transfer_authority_info,
         clock,
         token_program_id,
-    )
+    )?;
+    Ok(())
 }
 
 #[inline(never)] // avoid stack frame limit

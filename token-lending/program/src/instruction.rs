@@ -379,6 +379,36 @@ pub enum LendingInstruction {
         /// Reserve config to update to
         config: ReserveConfig,
     },
+
+    // 17
+    /// Repay borrowed liquidity to a reserve to receive collateral at a discount from an unhealthy
+    /// obligation. Requires a refreshed obligation and reserves.
+    ///
+    /// Accounts expected by this instruction:
+    ///
+    ///   0. `[writable]` Source liquidity token account.
+    ///                     Minted by repay reserve liquidity mint.
+    ///                     $authority can transfer $liquidity_amount.
+    ///   1. `[writable]` Destination collateral token account.
+    ///                     Minted by withdraw reserve collateral mint.
+    ///   2. `[writable]` Destination liquidity token account.
+    ///   3. `[writable]` Repay reserve account - refreshed.
+    ///   4. `[writable]` Repay reserve liquidity supply SPL Token account.
+    ///   5. `[writable]` Withdraw reserve account - refreshed.
+    ///   6. `[writable]` Withdraw reserve collateral SPL Token mint.
+    ///   7. `[writable]` Withdraw reserve collateral supply SPL Token account.
+    ///   8. `[writable]` Withdraw reserve liquidity supply SPL Token account.
+    ///   9. `[writable]` Withdraw reserve liquidity fee receiver account.
+    ///   10 `[writable]` Obligation account - refreshed.
+    ///   11 `[]` Lending market account.
+    ///   12 `[]` Derived lending market authority.
+    ///   13 `[signer]` User transfer authority ($authority).
+    ///   14 `[]` Clock sysvar.
+    ///   15 `[]` Token program id.
+    LiquidateObligationAndRedeemReserveCollateral {
+        /// Amount of liquidity to repay - u64::MAX for up to 100% of borrowed amount
+        liquidity_amount: u64,
+    },
 }
 
 impl LendingInstruction {
@@ -513,6 +543,10 @@ impl LendingInstruction {
                         fee_receiver,
                     },
                 }
+            }
+            17 => {
+                let (liquidity_amount, _rest) = Self::unpack_u64(rest)?;
+                Self::LiquidateObligationAndRedeemReserveCollateral { liquidity_amount }
             }
             _ => {
                 msg!("Instruction cannot be unpacked");
@@ -691,6 +725,10 @@ impl LendingInstruction {
                 buf.extend_from_slice(&config.deposit_limit.to_le_bytes());
                 buf.extend_from_slice(&config.borrow_limit.to_le_bytes());
                 buf.extend_from_slice(&config.fee_receiver.to_bytes());
+            }
+            Self::LiquidateObligationAndRedeemReserveCollateral { liquidity_amount } => {
+                buf.push(17);
+                buf.extend_from_slice(&liquidity_amount.to_le_bytes());
             }
         }
         buf
@@ -1214,5 +1252,55 @@ pub fn update_reserve_config(
         program_id,
         accounts,
         data: LendingInstruction::UpdateReserveConfig { config }.pack(),
+    }
+}
+
+/// Creates a `LiquidateObligationAndRedeemReserveCollateral` instruction
+#[allow(clippy::too_many_arguments)]
+pub fn liquidate_obligation_and_redeem_reserve_collateral(
+    program_id: Pubkey,
+    liquidity_amount: u64,
+    source_liquidity_pubkey: Pubkey,
+    destination_collateral_pubkey: Pubkey,
+    destination_liquidity_pubkey: Pubkey,
+    repay_reserve_pubkey: Pubkey,
+    repay_reserve_liquidity_supply_pubkey: Pubkey,
+    withdraw_reserve_pubkey: Pubkey,
+    withdraw_reserve_collateral_mint_pubkey: Pubkey,
+    withdraw_reserve_collateral_supply_pubkey: Pubkey,
+    withdraw_reserve_liquidity_supply_pubkey: Pubkey,
+    withdraw_reserve_liquidity_fee_receiver_pubkey: Pubkey,
+    obligation_pubkey: Pubkey,
+    lending_market_pubkey: Pubkey,
+    user_transfer_authority_pubkey: Pubkey,
+) -> Instruction {
+    let (lending_market_authority_pubkey, _bump_seed) = Pubkey::find_program_address(
+        &[&lending_market_pubkey.to_bytes()[..PUBKEY_BYTES]],
+        &program_id,
+    );
+    Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(source_liquidity_pubkey, false),
+            AccountMeta::new(destination_collateral_pubkey, false),
+            AccountMeta::new(destination_liquidity_pubkey, false),
+            AccountMeta::new(repay_reserve_pubkey, false),
+            AccountMeta::new(repay_reserve_liquidity_supply_pubkey, false),
+            AccountMeta::new(withdraw_reserve_pubkey, false),
+            AccountMeta::new(withdraw_reserve_collateral_mint_pubkey, false),
+            AccountMeta::new(withdraw_reserve_collateral_supply_pubkey, false),
+            AccountMeta::new(withdraw_reserve_liquidity_supply_pubkey, false),
+            AccountMeta::new(withdraw_reserve_liquidity_fee_receiver_pubkey, false),
+            AccountMeta::new(obligation_pubkey, false),
+            AccountMeta::new_readonly(lending_market_pubkey, false),
+            AccountMeta::new_readonly(lending_market_authority_pubkey, false),
+            AccountMeta::new_readonly(user_transfer_authority_pubkey, true),
+            AccountMeta::new_readonly(sysvar::clock::id(), false),
+            AccountMeta::new_readonly(spl_token::id(), false),
+        ],
+        data: LendingInstruction::LiquidateObligationAndRedeemReserveCollateral {
+            liquidity_amount,
+        }
+        .pack(),
     }
 }
