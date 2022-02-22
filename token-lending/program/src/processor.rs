@@ -1585,7 +1585,7 @@ fn process_liquidate_obligation(
     let clock = &Clock::from_account_info(next_account_info(account_info_iter)?)?;
     let token_program_id = next_account_info(account_info_iter)?;
 
-    let _withdraw_collateral_amount = _liquidate_obligation(
+    _liquidate_obligation(
         program_id,
         liquidity_amount,
         source_liquidity_info,
@@ -1849,7 +1849,7 @@ fn process_liquidate_obligation_and_redeem_reserve_collateral(
         clock,
         token_program_id,
     )?;
-    let mut withdraw_reserve = Reserve::unpack(&withdraw_reserve_info.data.borrow())?;
+    let withdraw_reserve = Reserve::unpack(&withdraw_reserve_info.data.borrow())?;
     if &withdraw_reserve.config.fee_receiver != withdraw_reserve_liquidity_fee_receiver_info.key {
         msg!("Withdraw reserve liquidity fee receiver does not match the reserve liquidity fee receiver provided");
         return Err(LendingError::InvalidAccountInput.into());
@@ -1865,12 +1865,6 @@ fn process_liquidate_obligation_and_redeem_reserve_collateral(
         authority_signer_seeds: &[],
         token_program: token_program_id.clone(),
     })?;
-
-    withdraw_reserve.last_update.mark_stale();
-    Reserve::pack(
-        withdraw_reserve,
-        &mut withdraw_reserve_info.data.borrow_mut(),
-    )?;
 
     Ok(())
 }
