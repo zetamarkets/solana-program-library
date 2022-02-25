@@ -4,7 +4,10 @@ use bytemuck::{
     cast_slice, cast_slice_mut, from_bytes, from_bytes_mut, try_cast_slice, try_cast_slice_mut,
     Pod, PodCastError, Zeroable,
 };
-use std::mem::size_of;
+use std::{
+    mem::size_of,
+    fmt,
+};
 
 pub const MAGIC: u32 = 0xa1b2c3d4;
 pub const VERSION_2: u32 = 2;
@@ -29,7 +32,7 @@ pub enum AccountType {
     Price,
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 #[repr(C)]
 pub enum PriceStatus {
     Unknown,
@@ -37,6 +40,13 @@ pub enum PriceStatus {
     Halted,
     Auction,
 }
+
+impl fmt::Display for PriceStatus{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 
 #[derive(PartialEq, Copy, Clone)]
 #[repr(C)]

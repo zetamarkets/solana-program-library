@@ -4,6 +4,7 @@ use crate::{
     self as spl_token_lending,
     error::LendingError,
     instruction::LendingInstruction,
+    logs::{emit_log_event},
     math::{Decimal, Rate, TryAdd, TryDiv, TryMul, TrySub, WAD},
     pyth,
     state::{
