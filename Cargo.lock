@@ -3328,6 +3328,8 @@ dependencies = [
  "num-traits",
  "proptest",
  "serde",
+ "serde_derive",
+ "serde_json",
  "serde_yaml",
  "solana-program",
  "solana-program-test",

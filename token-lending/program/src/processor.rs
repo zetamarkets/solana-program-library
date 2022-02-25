@@ -1,10 +1,13 @@
 //! Program state processor
 
 use crate::{
-    self as spl_token_lending,
+    self as spl_token_lending, emit_log_event,
     error::LendingError,
     instruction::LendingInstruction,
-    logs::{emit_log_event, PythOraclePriceUpdate, SwitchboardV1OraclePriceUpdate},
+    logs::{
+        LogEventType, PythError, PythOraclePriceUpdate, SwitchboardError,
+        SwitchboardV1OraclePriceUpdate,
+    },
     math::{Decimal, Rate, TryAdd, TryDiv, TryMul, TrySub, WAD},
     pyth,
     state::{
@@ -2153,15 +2156,24 @@ fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decima
         .map_err(|_| ProgramError::InvalidAccountData)?;
 
     if pyth_price.ptype != pyth::PriceType::Price {
-        msg!("Oracle price type is invalid {}", pyth_price.ptype as u8);
+        emit_log_event!(&PythError {
+            event_type: LogEventType::PythOraclePriceUpdateType,
+            oracle_pubkey: *pyth_price_info.key,
+            error_message: format!("Oracle price type is invalid: {}", pyth_price.ptype as u8),
+        });
+
         return Err(LendingError::InvalidOracleConfig.into());
     }
 
     if pyth_price.agg.status != pyth::PriceStatus::Trading {
-        msg!(
-            "Oracle price status is invalid: {}",
-            pyth_price.agg.status as u8
-        );
+        emit_log_event!(&PythError {
+            event_type: LogEventType::PythOraclePriceUpdateType,
+            oracle_pubkey: *pyth_price_info.key,
+            error_message: format!(
+                "Oracle price status is invalid: {}",
+                pyth_price.agg.status as u8
+            ),
+        });
         return Err(LendingError::InvalidOracleConfig.into());
     }
 
@@ -2170,12 +2182,20 @@ fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decima
         .checked_sub(pyth_price.valid_slot)
         .ok_or(LendingError::MathOverflow)?;
     if slots_elapsed >= STALE_AFTER_SLOTS_ELAPSED {
-        msg!("Pyth oracle price is stale");
+        emit_log_event!(&PythError {
+            event_type: LogEventType::PythOraclePriceUpdateType,
+            oracle_pubkey: *pyth_price_info.key,
+            error_message: format!("Pyth oracle price is stale: {} slots old.", slots_elapsed),
+        });
         return Err(LendingError::InvalidOracleConfig.into());
     }
 
     let price: u64 = pyth_price.agg.price.try_into().map_err(|_| {
-        msg!("Oracle price cannot be negative");
+        emit_log_event!(&PythError {
+            event_type: LogEventType::PythOraclePriceUpdateType,
+            oracle_pubkey: *pyth_price_info.key,
+            error_message: "Oracle price cannot be negative".to_string(),
+        });
         LendingError::InvalidOracleConfig
     })?;
 
@@ -2186,11 +2206,15 @@ fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decima
     // 100/confidence_ratio = maximum size of confidence range as a percent of price
     // confidence_ratio of 10 filters out pyth prices with conf > 10% of price
     if conf.checked_mul(confidence_ratio).unwrap() > price {
-        msg!(
-            "Oracle price confidence is too wide. price: {}, conf: {}",
-            price,
-            conf,
-        );
+        emit_log_event!(&PythError {
+            event_type: LogEventType::PythOraclePriceUpdateType,
+            oracle_pubkey: *pyth_price_info.key,
+            error_message: format!(
+                "Oracle price confidence is too wide. price: {}, conf: {}",
+                price, conf
+            ),
+        });
+
         return Err(LendingError::InvalidOracleConfig.into());
     }
 
@@ -2215,10 +2239,11 @@ fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decima
             .ok_or(LendingError::MathOverflow)?;
         Decimal::from(price).try_div(decimals)?
     };
-    emit_log_event(&PythOraclePriceUpdate {
+    emit_log_event!(&PythOraclePriceUpdate {
+        event_type: LogEventType::PythOraclePriceUpdateType,
         oracle_pubkey: *pyth_price_info.key,
         price: market_price,
-        conf: conf,
+        confidence: conf,
         published_slot: pyth_price.valid_slot,
     });
 
@@ -2238,7 +2263,11 @@ fn get_switchboard_price(
     let account_buf = switchboard_feed_info.try_borrow_data()?;
     // first byte type discriminator
     if account_buf[0] != SwitchboardAccountType::TYPE_AGGREGATOR as u8 {
-        msg!("switchboard address not of type aggregator");
+        emit_log_event!(&SwitchboardError {
+            event_type: LogEventType::SwitchboardErrorType,
+            oracle_pubkey: *switchboard_feed_info.key,
+            error_message: "Switchboard feed is not of type aggregator".to_string(),
+        });
         return Err(LendingError::InvalidAccountInput.into());
     }
 
@@ -2254,7 +2283,11 @@ fn get_switchboard_price(
         .checked_sub(open_slot)
         .ok_or(LendingError::MathOverflow)?;
     if slots_elapsed >= STALE_AFTER_SLOTS_ELAPSED {
-        msg!("Switchboard oracle price is stale");
+        emit_log_event!(&SwitchboardError {
+            event_type: LogEventType::SwitchboardErrorType,
+            oracle_pubkey: *switchboard_feed_info.key,
+            error_message: format!("Oracle price is stale by {} slots", slots_elapsed),
+        });
         return Err(LendingError::InvalidOracleConfig.into());
     }
 
@@ -2266,7 +2299,8 @@ fn get_switchboard_price(
     let price = ((price_quotient as f64) * price_float) as u128;
 
     let market_price = Decimal::from(price).try_div(price_quotient)?;
-    emit_log_event(&SwitchboardV1OraclePriceUpdate {
+    emit_log_event!(&SwitchboardV1OraclePriceUpdate {
+        event_type: LogEventType::SwitchboardV1OraclePriceUpdateType,
         oracle_pubkey: *switchboard_feed_info.key,
         price: market_price,
         published_slot: open_slot,
