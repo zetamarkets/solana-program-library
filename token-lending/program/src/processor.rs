@@ -4,7 +4,7 @@ use crate::{
     self as spl_token_lending,
     error::LendingError,
     instruction::LendingInstruction,
-    logs::{emit_log_event},
+    logs::{emit_log_event, PythOraclePriceUpdate, SwitchboardV1OraclePriceUpdate},
     math::{Decimal, Rate, TryAdd, TryDiv, TryMul, TrySub, WAD},
     pyth,
     state::{
@@ -2215,6 +2215,12 @@ fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decima
             .ok_or(LendingError::MathOverflow)?;
         Decimal::from(price).try_div(decimals)?
     };
+    emit_log_event(&PythOraclePriceUpdate {
+        oracle_pubkey: *pyth_price_info.key,
+        price: market_price,
+        conf: conf,
+        published_slot: pyth_price.valid_slot,
+    });
 
     Ok(market_price)
 }
@@ -2242,10 +2248,10 @@ fn get_switchboard_price(
     //     return Err(LendingError::InvalidAccountInput.into());
     // }
     let round_result: RoundResult = get_aggregator_result(&aggregator)?;
-
+    let open_slot = round_result.round_open_slot.unwrap();
     let slots_elapsed = clock
         .slot
-        .checked_sub(round_result.round_open_slot.unwrap())
+        .checked_sub(open_slot)
         .ok_or(LendingError::MathOverflow)?;
     if slots_elapsed >= STALE_AFTER_SLOTS_ELAPSED {
         msg!("Switchboard oracle price is stale");
@@ -2259,7 +2265,13 @@ fn get_switchboard_price(
     let price_quotient = 10u64.pow(9);
     let price = ((price_quotient as f64) * price_float) as u128;
 
-    Decimal::from(price).try_div(price_quotient)
+    let market_price = Decimal::from(price).try_div(price_quotient)?;
+    emit_log_event(&SwitchboardV1OraclePriceUpdate {
+        oracle_pubkey: *switchboard_feed_info.key,
+        price: market_price,
+        published_slot: open_slot,
+    });
+    Ok(market_price)
 }
 
 /// Issue a spl_token `InitializeAccount` instruction.
