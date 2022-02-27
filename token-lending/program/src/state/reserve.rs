@@ -307,6 +307,8 @@ impl Reserve {
 
         let bonus = amount_liquidated_wads.try_sub(amount_liquidated_wads.try_div(bonus_rate)?)?;
 
+        // After deploying must update all reserves to set liquidation fee then redeploy with this line instead of hardcode
+        // let protocol_fee = bonus.try_mul(Rate::from_percent(self.config.protocol_liquidation_fee))?.try_ceil_u64()?;
         let protocol_fee = bonus.try_mul(Rate::from_percent(30))?.try_ceil_u64()?;
         Ok(protocol_fee)
     }
@@ -629,6 +631,8 @@ pub struct ReserveConfig {
     pub borrow_limit: u64,
     /// Reserve liquidity fee receiver address
     pub fee_receiver: Pubkey,
+    /// Cut of the liquidation bonus that the protocol receives, as a percentage
+    pub protocol_liquidation_fee: u8,
 }
 
 /// Additional fee information on a reserve
@@ -739,7 +743,7 @@ impl IsInitialized for Reserve {
     }
 }
 
-const RESERVE_LEN: usize = 619; // 1 + 8 + 1 + 32 + 32 + 1 + 32 + 32 + 32 + 8 + 16 + 16 + 16 + 32 + 8 + 32 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 8 + 8 + 1 + 8 + 8 + 32 + 248
+const RESERVE_LEN: usize = 619; // 1 + 8 + 1 + 32 + 32 + 1 + 32 + 32 + 32 + 8 + 16 + 16 + 16 + 32 + 8 + 32 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 8 + 8 + 1 + 8 + 8 + 32 + 1 + 247
 impl Pack for Reserve {
     const LEN: usize = RESERVE_LEN;
 
@@ -777,6 +781,7 @@ impl Pack for Reserve {
             config_deposit_limit,
             config_borrow_limit,
             config_fee_receiver,
+            config_protocol_liquidation_fee,
             _padding,
         ) = mut_array_refs![
             output,
@@ -809,7 +814,8 @@ impl Pack for Reserve {
             8,
             8,
             PUBKEY_BYTES,
-            248
+            1,
+            247
         ];
 
         // reserve
@@ -855,6 +861,7 @@ impl Pack for Reserve {
         *config_deposit_limit = self.config.deposit_limit.to_le_bytes();
         *config_borrow_limit = self.config.borrow_limit.to_le_bytes();
         config_fee_receiver.copy_from_slice(self.config.fee_receiver.as_ref());
+        *config_protocol_liquidation_fee = self.config.protocol_liquidation_fee.to_le_bytes();
     }
 
     /// Unpacks a byte buffer into a [ReserveInfo](struct.ReserveInfo.html).
@@ -891,6 +898,7 @@ impl Pack for Reserve {
             config_deposit_limit,
             config_borrow_limit,
             config_fee_receiver,
+            config_protocol_liquidation_fee,
             _padding,
         ) = array_refs![
             input,
@@ -923,7 +931,8 @@ impl Pack for Reserve {
             8,
             8,
             PUBKEY_BYTES,
-            248
+            1,
+            247
         ];
 
         let version = u8::from_le_bytes(*version);
@@ -973,6 +982,7 @@ impl Pack for Reserve {
                 deposit_limit: u64::from_le_bytes(*config_deposit_limit),
                 borrow_limit: u64::from_le_bytes(*config_borrow_limit),
                 fee_receiver: Pubkey::new_from_array(*config_fee_receiver),
+                protocol_liquidation_fee: u8::from_le_bytes(*config_protocol_liquidation_fee),
             },
         })
     }

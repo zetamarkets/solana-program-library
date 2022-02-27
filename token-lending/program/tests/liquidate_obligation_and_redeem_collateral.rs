@@ -174,7 +174,7 @@ async fn test_success() {
     );
 
     assert_eq!(
-        // 30% of the bonus 
+        // 30% of the bonus
         SOL_LIQUIDATION_AMOUNT_LAMPORTS * 3 / 10 / 11,
         (fee_reciever_withdraw_liquidity_balance - initial_fee_reciever_withdraw_liquidity_balance)
     );
