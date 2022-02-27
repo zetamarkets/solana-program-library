@@ -2556,8 +2556,8 @@ fn validate_reserve_config(config: ReserveConfig) -> ProgramResult {
         msg!("Host fee percentage must be in range [0, 100]");
         return Err(LendingError::InvalidConfig.into());
     }
-    if config.protocol_liquidation_fee >= 100 {
-        msg!("Protocol liquidation fee must be in range [0, 100)");
+    if config.protocol_liquidation_fee > 100 {
+        msg!("Protocol liquidation fee must be in range [0, 100]");
         return Err(LendingError::InvalidConfig.into());
     }
     Ok(())
