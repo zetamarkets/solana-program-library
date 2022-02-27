@@ -313,13 +313,20 @@ pub fn add_reserve(
         &spl_token::id(),
     );
 
+    let amount = if let COption::Some(rent_reserve) = is_native {
+        rent_reserve
+    } else {
+        u32::MAX as u64
+    };
+
     test.add_packable_account(
         config.fee_receiver,
-        u32::MAX as u64,
+        amount,
         &Token {
             mint: liquidity_mint_pubkey,
             owner: lending_market.owner.pubkey(),
             amount: 0,
+            is_native,
             state: AccountState::Initialized,
             ..Token::default()
         },
