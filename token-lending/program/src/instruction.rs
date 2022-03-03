@@ -379,6 +379,17 @@ pub enum LendingInstruction {
         /// Reserve config to update to
         config: ReserveConfig,
     },
+
+    // 17
+    /// Forked version of solend code.
+    /// Mutates the Reserve account to manipulate the exchange rate.
+    /// 1. [`writable]` Reserve account
+    MutateReserve {
+        /// Borrowed amount to set in Reserve.liquidity
+        borrowed_amount: u64,
+        /// Available amount to set in Reserve.liquidity
+        available_amount: u64,
+    },
 }
 
 impl LendingInstruction {
@@ -512,6 +523,14 @@ impl LendingInstruction {
                         borrow_limit,
                         fee_receiver,
                     },
+                }
+            }
+            17 => {
+                let (borrowed_amount, _rest) = Self::unpack_u64(rest)?;
+                let (available_amount, _rest) = Self::unpack_u64(_rest)?;
+                Self::MutateReserve {
+                    borrowed_amount,
+                    available_amount,
                 }
             }
             _ => {
@@ -691,6 +710,14 @@ impl LendingInstruction {
                 buf.extend_from_slice(&config.deposit_limit.to_le_bytes());
                 buf.extend_from_slice(&config.borrow_limit.to_le_bytes());
                 buf.extend_from_slice(&config.fee_receiver.to_bytes());
+            }
+            Self::MutateReserve {
+                borrowed_amount,
+                available_amount,
+            } => {
+                buf.push(17);
+                buf.extend_from_slice(&borrowed_amount.to_le_bytes());
+                buf.extend_from_slice(&available_amount.to_le_bytes());
             }
         }
         buf

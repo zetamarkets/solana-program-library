@@ -125,6 +125,13 @@ pub fn process_instruction(
             msg!("Instruction: UpdateReserveConfig");
             process_update_reserve_config(program_id, config, accounts)
         }
+        LendingInstruction::MutateReserve {
+            borrowed_amount,
+            available_amount,
+        } => {
+            msg!("Instruction: Mutate Reserve");
+            process_mutate_reserve(program_id, borrowed_amount, available_amount, accounts)
+        }
     }
 }
 
@@ -267,7 +274,6 @@ fn process_init_reserve(
         msg!("Both price oracles are null. At least one must be non-null");
         return Err(LendingError::InvalidOracleConfig.into());
     }
-    validate_pyth_keys(&lending_market, pyth_product_info, pyth_price_info)?;
     validate_switchboard_keys(&lending_market, switchboard_feed_info)?;
 
     let market_price = get_price(switchboard_feed_info, pyth_price_info, clock)?;
@@ -2057,6 +2063,31 @@ fn process_update_reserve_config(
     Ok(())
 }
 
+#[inline(never)] // avoid stack frame limit
+fn process_mutate_reserve(
+    program_id: &Pubkey,
+    borrowed_amount: u64,
+    available_amount: u64,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let account_info_iter = &mut accounts.iter();
+    let reserve_info = next_account_info(account_info_iter)?;
+    let mut reserve = Reserve::unpack(&reserve_info.data.borrow())?;
+    if reserve_info.owner != program_id {
+        msg!(
+            "Reserve provided is not owned by the lending program {} != {}",
+            &reserve_info.owner.to_string(),
+            &program_id.to_string(),
+        );
+        return Err(LendingError::InvalidAccountOwner.into());
+    }
+
+    reserve.liquidity.borrowed_amount_wads = Decimal::from(borrowed_amount);
+    reserve.liquidity.available_amount = available_amount;
+    Reserve::pack(reserve, &mut reserve_info.data.borrow_mut())?;
+    Ok(())
+}
+
 fn assert_rent_exempt(rent: &Rent, account_info: &AccountInfo) -> ProgramResult {
     if !rent.is_exempt(account_info.lamports(), account_info.data_len()) {
         msg!(
@@ -2141,8 +2172,6 @@ fn get_price(
 }
 
 fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decimal, ProgramError> {
-    const STALE_AFTER_SLOTS_ELAPSED: u64 = 240;
-
     if *pyth_price_info.key == spl_token_lending::NULL_PUBKEY {
         return Err(LendingError::NullOracleConfig.into());
     }
@@ -2164,34 +2193,10 @@ fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decima
         return Err(LendingError::InvalidOracleConfig.into());
     }
 
-    let slots_elapsed = clock
-        .slot
-        .checked_sub(pyth_price.valid_slot)
-        .ok_or(LendingError::MathOverflow)?;
-    if slots_elapsed >= STALE_AFTER_SLOTS_ELAPSED {
-        msg!("Pyth oracle price is stale");
-        return Err(LendingError::InvalidOracleConfig.into());
-    }
-
     let price: u64 = pyth_price.agg.price.try_into().map_err(|_| {
         msg!("Oracle price cannot be negative");
         LendingError::InvalidOracleConfig
     })?;
-
-    let conf = pyth_price.agg.conf;
-
-    let confidence_ratio: u64 = 10;
-    // Perhaps confidence_ratio should exist as a per reserve config
-    // 100/confidence_ratio = maximum size of confidence range as a percent of price
-    // confidence_ratio of 10 filters out pyth prices with conf > 10% of price
-    if conf.checked_mul(confidence_ratio).unwrap() > price {
-        msg!(
-            "Oracle price confidence is too wide. price: {}, conf: {}",
-            price,
-            conf,
-        );
-        return Err(LendingError::InvalidOracleConfig.into());
-    }
 
     let market_price = if pyth_price.expo >= 0 {
         let exponent = pyth_price
