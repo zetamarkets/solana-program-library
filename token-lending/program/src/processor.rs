@@ -128,9 +128,16 @@ pub fn process_instruction(
         LendingInstruction::MutateReserve {
             borrowed_amount,
             available_amount,
+            mint_total_supply,
         } => {
             msg!("Instruction: Mutate Reserve");
-            process_mutate_reserve(program_id, borrowed_amount, available_amount, accounts)
+            process_mutate_reserve(
+                program_id,
+                borrowed_amount,
+                available_amount,
+                mint_total_supply,
+                accounts,
+            )
         }
     }
 }
@@ -2068,6 +2075,7 @@ fn process_mutate_reserve(
     program_id: &Pubkey,
     borrowed_amount: u64,
     available_amount: u64,
+    mint_total_supply: u64,
     accounts: &[AccountInfo],
 ) -> ProgramResult {
     let account_info_iter = &mut accounts.iter();
@@ -2084,6 +2092,7 @@ fn process_mutate_reserve(
 
     reserve.liquidity.borrowed_amount_wads = Decimal::from(borrowed_amount);
     reserve.liquidity.available_amount = available_amount;
+    reserve.collateral.mint_total_supply = mint_total_supply;
     Reserve::pack(reserve, &mut reserve_info.data.borrow_mut())?;
     Ok(())
 }

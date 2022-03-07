@@ -389,6 +389,8 @@ pub enum LendingInstruction {
         borrowed_amount: u64,
         /// Available amount to set in Reserve.liquidity
         available_amount: u64,
+        /// Mint total supply to set in Reserve.collateral
+        mint_total_supply: u64,
     },
 }
 
@@ -528,9 +530,11 @@ impl LendingInstruction {
             17 => {
                 let (borrowed_amount, _rest) = Self::unpack_u64(rest)?;
                 let (available_amount, _rest) = Self::unpack_u64(_rest)?;
+                let (mint_total_supply, _rest) = Self::unpack_u64(_rest)?;
                 Self::MutateReserve {
                     borrowed_amount,
                     available_amount,
+                    mint_total_supply,
                 }
             }
             _ => {
@@ -714,10 +718,12 @@ impl LendingInstruction {
             Self::MutateReserve {
                 borrowed_amount,
                 available_amount,
+                mint_total_supply,
             } => {
                 buf.push(17);
                 buf.extend_from_slice(&borrowed_amount.to_le_bytes());
                 buf.extend_from_slice(&available_amount.to_le_bytes());
+                buf.extend_from_slice(&mint_total_supply.to_le_bytes());
             }
         }
         buf
