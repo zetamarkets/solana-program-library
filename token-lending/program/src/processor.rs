@@ -2185,14 +2185,6 @@ fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decima
         return Err(LendingError::InvalidOracleConfig.into());
     }
 
-    if pyth_price.agg.status != pyth::PriceStatus::Trading {
-        msg!(
-            "Oracle price status is invalid: {}",
-            pyth_price.agg.status as u8
-        );
-        return Err(LendingError::InvalidOracleConfig.into());
-    }
-
     let price: u64 = pyth_price.agg.price.try_into().map_err(|_| {
         msg!("Oracle price cannot be negative");
         LendingError::InvalidOracleConfig
