@@ -2180,7 +2180,7 @@ fn get_price(
     get_switchboard_price(switchboard_feed_info, clock)
 }
 
-fn get_pyth_price(pyth_price_info: &AccountInfo, clock: &Clock) -> Result<Decimal, ProgramError> {
+fn get_pyth_price(pyth_price_info: &AccountInfo, _clock: &Clock) -> Result<Decimal, ProgramError> {
     if *pyth_price_info.key == spl_token_lending::NULL_PUBKEY {
         return Err(LendingError::NullOracleConfig.into());
     }
