@@ -565,6 +565,7 @@ impl CollateralExchangeRate {
         &self,
         collateral_amount: Decimal,
     ) -> Result<Decimal, ProgramError> {
+        msg!("liquidity to collateral exchange rate = {}", self.0);
         collateral_amount.try_div(self.0)
     }
 
@@ -579,6 +580,7 @@ impl CollateralExchangeRate {
         &self,
         liquidity_amount: Decimal,
     ) -> Result<Decimal, ProgramError> {
+        msg!("liquidity to collateral exchange rate = {}", self.0);
         liquidity_amount.try_mul(self.0)
     }
 }
